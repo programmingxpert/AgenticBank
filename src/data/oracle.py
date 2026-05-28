@@ -13,6 +13,8 @@ db_config = {
     "user": os.getenv("ORACLE_USER", "banking"),
     "password": os.getenv("ORACLE_PASSWORD", "oracle"),
     "dsn": os.getenv("ORACLE_CONNECT_STRING", "localhost:1521/FREEPDB1"),
+    "wallet_location": os.getenv("TNS_ADMIN"),
+    "wallet_password": os.getenv("WALLET_PASSWORD"),
     "min": 2,
     "max": 10,
     "increment": 1
@@ -58,14 +60,24 @@ def _init_db_sync():
     if pool is not None:
         return
     logger.info(f"Oracle DB: Initializing connection pool to {db_config['dsn']}...")
-    pool = oracledb.create_pool(
-        user=db_config["user"],
-        password=db_config["password"],
-        dsn=db_config["dsn"],
-        min=db_config["min"],
-        max=db_config["max"],
-        increment=db_config["increment"]
-    )
+    
+    kwargs = {
+        "user": db_config["user"],
+        "password": db_config["password"],
+        "dsn": db_config["dsn"],
+        "min": db_config["min"],
+        "max": db_config["max"],
+        "increment": db_config["increment"]
+    }
+    
+    if db_config["wallet_location"]:
+        kwargs["config_dir"] = db_config["wallet_location"]
+        kwargs["wallet_location"] = db_config["wallet_location"]
+        
+    if db_config["wallet_password"]:
+        kwargs["wallet_password"] = db_config["wallet_password"]
+        
+    pool = oracledb.create_pool(**kwargs)
     logger.info("Oracle DB: Connection pool created successfully.")
 
 async def init_db():
