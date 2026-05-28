@@ -671,3 +671,32 @@ Restart Claude Desktop. You will see **AgenticBank AI** listed as a connected MC
 - **Zero UI Required**: Developers and analysts can query the full banking system from their IDE (Cursor MCP) or AI assistant without opening a browser.
 - **Composable Workflows**: External agents can chain multiple tools together — e.g., pull a user's financial intelligence, check their portfolio, assess risk, and file a compliance report in a single reasoning loop.
 - **Audit-Safe**: Every write through the MCP server goes through the same `DataStore._audit()` trail as the web app, keeping a complete record of all AI-initiated actions.
+
+---
+
+## 📁 Project Directory Structure
+
+Here is a comprehensive breakdown of every folder in the AgenticBank AI repository and its purpose:
+
+### `/src` - The Core Backend
+The beating heart of the application, written in Python with FastAPI.
+- `/src/agents/`: Contains the specific Python files for each AI domain agent (e.g., `loan_agent.py`, `fraud_agent.py`, `transaction_agent.py`). Every agent is a specialized wrapper defining its system prompts and tools.
+- `/src/ai/`: Contains the core AI orchestration logic (`orchestrator.py`), DeepSeek LLM API client interfaces, LangGraph state configurations, and vector embedding utilities.
+- `/src/data/`: Handles data persistence. Contains the `data_store.py` singleton (which manages the read-through/write-through cache) and the Oracle 26ai DB wrappers.
+- `/src/middleware/`: FastAPI middleware components for JWT authentication (`auth_middleware.py`) and strict Human-in-the-Loop approval workflows.
+- `/src/routes/`: Contains REST API endpoint definitions, organizing the backend into clean modular routes.
+- `/src/utils/`: Common helpers like the custom logger (`logger.py`) and cryptographic token generators (`jwt_utils.py`).
+
+### `/public` - The Frontend Client
+Contains the lightweight, Vanilla JS / HTML5 Single Page Application.
+- `/public/css/`: Vanilla CSS stylesheets. Uses modern CSS variables for theming, glassmorphism, and responsive design without heavy libraries like Tailwind or Bootstrap.
+- `/public/js/`: Vanilla JavaScript singletons controlling the frontend UI. Includes modules like `app.js` (core websocket setup), `payment.js` (autonomous payment hub), `banker.js` (banker dashboard), and `chat.js` (AI concierge interface).
+
+### `/model` - Local AI Models
+- Used to store downloaded, offline machine learning models (e.g., the VOSK speech recognition model for real-time voice transcription).
+
+### `/scratch` - Development & Testing
+- A sandbox directory containing one-off test scripts, database validation checks, and experimental code (e.g., `test_oracledb.js`, Python rename scripts) used during the development phase.
+
+### `/node_modules` - JavaScript Dependencies
+- Local NPM packages required for running standalone testing scripts or specific frontend tooling. (Note: The core web app itself relies on no build tools).
