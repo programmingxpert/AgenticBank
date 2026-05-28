@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Payment Hub — AgenticBank AI</title>
+<meta name="description" content="AgenticBank AI Payment Hub: Autonomous payment orchestration with real-time pipeline visibility, human-in-the-loop guardrails, and multi-rail routing.">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<link rel="stylesheet" href="/css/styles.css">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script>
+(function() {
+  const token = localStorage.getItem('agentToken');
+  if (!token) { window.location.replace('/login.html'); return; }
+  const originalFetch = window.fetch;
+  window.fetch = async function(...args) {
+    let [url, config] = args;
+    config = config || {};
+    config.headers = config.headers || {};
+    const tok = localStorage.getItem('agentToken');
+    if (tok && typeof url === 'string' && (url.startsWith('/api/') || url.startsWith('api/'))) {
+      if (!(config.headers instanceof Headers)) config.headers['Authorization'] = `Bearer ${tok}`;
+      else config.headers.set('Authorization', `Bearer ${tok}`);
+    }
+    try {
+      const r = await originalFetch(url, config);
+      if (r.status === 401) { localStorage.removeItem('agentToken'); window.location.replace('/login.html'); }
+      return r;
+    } catch(e) { throw e; }
+  };
+})();
+</script>
+<style>
+/* ── Payment Hub Styles ─────────────────────────────────── */
+.pay-layout { display: flex; height: 100vh; overflow: hidden; }
+
+/* Sidebar */
+.pay-sidebar { width: 240px; min-width: 240px; background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%); display: flex; flex-direction: column; z-index: 100; }
+.pay-brand { padding: 20px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 10px; }
+.pay-brand-icon { width: 38px; height: 38px; background: linear-gradient(135deg, #0284c7, #059669); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+.pay-brand-text .name { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700; color: #fff; }
+.pay-brand-text .tag { font-size: 10px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1.5px; }
+.pay-nav { padding: 12px 0; flex: 1; overflow-y: auto; }
+.pay-nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; color: rgba(255,255,255,0.55); font-size: 13px; font-weight: 500; cursor: pointer; transition: all .2s; border-left: 2px solid transparent; text-decoration: none; }
+.pay-nav-item:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.85); }
+.pay-nav-item.active { background: rgba(2,132,199,0.15); color: #38bdf8; border-left-color: #0284c7; }
+.nav-icon { font-size: 16px; width: 20px; text-align: center; }
+.nav-badge { background: var(--danger); color: #fff; border-radius: 10px; font-size: 10px; padding: 1px 6px; margin-left: auto; }
+.pay-sidebar-footer { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.08); }
+.ws-status { display: flex; align-items: center; gap: 8px; font-size: 11px; color: rgba(255,255,255,0.4); }
+#ws-indicator { width: 7px; height: 7px; border-radius: 50%; background: var(--neon); box-shadow: 0 0 6px var(--neon); animation: blink 2s infinite; }
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:.4} }
+
+/* Main Area */
+.pay-main { flex: 1; overflow: hidden; display: flex; flex-direction: column; background: var(--bg-deep); }
+.pay-topbar { height: 56px; background: var(--bg-surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; gap: 16px; }
+.pay-topbar h2 { font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 600; color: var(--text-primary); }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.hitl-badge { display: flex; align-items: center; gap: 6px; background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.2); border-radius: 20px; padding: 4px 12px; font-size: 11px; color: var(--danger); font-weight: 600; }
+.hitl-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--danger); animation: blink 1.5s infinite; }
+.pay-content { flex: 1; overflow: hidden; }
+.pay-view { display: none; height: 100%; overflow-y: auto; padding: 20px; }
+.pay-view.active { display: flex; flex-direction: column; gap: 16px; }
+
+/* ── Command Center ──────────────────────────────────────── */
+.command-grid { display: grid; grid-template-columns: 400px 1fr; gap: 16px; height: 100%; }
+.cmd-form-panel { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; overflow-y: auto; }
+.cmd-form-panel h3 { font-size: 14px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+.form-control { width: 100%; background: var(--bg-card2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; font-size: 13px; color: var(--text-primary); font-family: inherit; outline: none; transition: var(--transition); }
+.form-control:focus { border-color: var(--electric); box-shadow: 0 0 0 3px rgba(2,132,199,0.1); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fee-estimate { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary); padding: 8px 12px; background: var(--bg-card2); border-radius: 8px; border: 1px solid var(--border); margin-bottom: 14px; }
+.fee-estimate .sep { color: var(--border2); }
+.hitl-warning { display: none; align-items: center; gap: 10px; padding: 10px 14px; background: rgba(220,38,38,0.06); border: 1px solid rgba(220,38,38,0.2); border-radius: 8px; font-size: 12px; color: var(--danger); margin-bottom: 14px; }
+.btn-pay { width: 100%; padding: 12px; background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all .2s; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.btn-pay:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(2,132,199,0.3); }
+.btn-pay:disabled { opacity: 0.6; transform: none; cursor: not-allowed; }
+.cmd-right { display: flex; flex-direction: column; gap: 14px; }
+.pipeline-panel { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 14px; flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.panel-header { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; background: linear-gradient(90deg, rgba(2,132,199,0.04), transparent); }
+.pipeline-stages { display: flex; align-items: center; gap: 0; padding: 12px 16px; background: var(--bg-card2); border-bottom: 1px solid var(--border); }
+.pipeline-stage { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: var(--text-muted); padding: 6px 14px; border-radius: 20px; transition: all .3s; }
+.pipeline-stage .stage-num { width: 20px; height: 20px; border-radius: 50%; background: var(--border); color: var(--text-muted); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
+.stage-active { color: var(--electric); background: rgba(2,132,199,0.08); }
+.stage-active .stage-num { background: var(--electric); color: #fff; }
+.stage-complete { color: var(--neon); }
+.stage-complete .stage-num { background: var(--neon); color: #fff; }
+.stage-hold { color: var(--amber); background: rgba(217,119,6,0.08); }
+.stage-hold .stage-num { background: var(--amber); color: #fff; }
+.stage-failed { color: var(--danger); }
+.stage-connector { flex: 1; height: 2px; background: var(--border); max-width: 40px; }
+#pipeline-trace { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.pipeline-empty { color: var(--text-muted); font-size: 13px; text-align: center; padding: 40px 20px; }
+.trace-entry { display: flex; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--bg-card2); border: 1px solid var(--border); animation: fadeInUp 0.3s ease; }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.trace-icon { font-size: 18px; flex-shrink: 0; }
+.trace-body { flex: 1; min-width: 0; }
+.trace-agent { font-size: 10px; font-weight: 700; color: var(--electric); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+.trace-content { font-size: 13px; color: var(--text-primary); line-height: 1.5; }
+.trace-content code { background: rgba(2,132,199,0.08); color: var(--electric); padding: 1px 5px; border-radius: 4px; font-family: var(--mono); font-size: 11px; }
+.trace-tool-result { margin-top: 4px; font-size: 11px; color: var(--text-muted); }
+.trace-time { font-size: 10px; color: var(--text-muted); flex-shrink: 0; font-family: var(--mono); }
+
+/* ── Queue View ─────────────────────────────────────────── */
+.queue-panel { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 14px; flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.queue-filters { display: flex; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--bg-card2); }
+.filter-btn { padding: 4px 14px; border-radius: 20px; border: 1px solid var(--border); font-size: 11px; font-weight: 600; cursor: pointer; background: transparent; color: var(--text-secondary); transition: all .2s; font-family: inherit; }
+.filter-btn.active, .filter-btn:hover { background: var(--electric); color: #fff; border-color: var(--electric); }
+.queue-table-wrap { flex: 1; overflow: auto; }
+table.pay-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.pay-table th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); background: var(--bg-card2); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 1; }
+table.pay-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.queue-row { cursor: pointer; transition: background .15s; }
+.queue-row:hover { background: var(--bg-card2); }
+.pay-id { font-family: var(--mono); font-size: 11px; color: var(--electric); }
+.status-badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.badge-success { background: rgba(5,150,105,0.1); color: var(--neon); }
+.badge-info { background: rgba(2,132,199,0.1); color: var(--electric); }
+.badge-warning { background: rgba(217,119,6,0.1); color: var(--amber); }
+.badge-danger { background: rgba(220,38,38,0.1); color: var(--danger); }
+.badge-muted { background: var(--bg-card2); color: var(--text-muted); }
+.badge-violet { background: rgba(124,58,237,0.1); color: var(--violet); }
+.badge-pulse { animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.5} }
+.empty-row td { text-align: center; padding: 40px; }
+.queue-empty { color: var(--text-muted); font-size: 13px; }
+.btn-sm { padding: 3px 10px; border-radius: 6px; border: none; font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.btn-danger { background: rgba(220,38,38,0.1); color: var(--danger); }
+.btn-danger:hover { background: var(--danger); color: #fff; }
+
+/* ── Analytics View ─────────────────────────────────────── */
+.analytics-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+.stat-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
+.stat-card.wide { grid-column: span 2; }
+.stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 8px; }
+.stat-value { font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.stat-value.green { color: var(--neon); }
+.stat-value.amber { color: var(--amber); }
+.stat-value.red { color: var(--danger); }
+.rail-breakdown { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.rail-bar-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+.rail-label { width: 60px; color: var(--text-secondary); font-weight: 600; }
+.rail-bar-bg { flex: 1; height: 8px; background: var(--bg-card2); border-radius: 4px; overflow: hidden; }
+.rail-bar-fill { height: 100%; border-radius: 4px; transition: width .5s ease; }
+.rail-count { width: 30px; text-align: right; color: var(--text-muted); font-weight: 600; }
+
+/* ── Reconciliation ─────────────────────────────────────── */
+.recon-summary { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
+.recon-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; text-align: center; }
+.recon-value { font-family: 'Space Grotesk', sans-serif; font-size: 24px; font-weight: 700; }
+.recon-label { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+.green { color: var(--neon); }
+.red { color: var(--danger); }
+.amber { color: var(--amber); }
+.recon-table-wrap { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; flex: 1; }
+
+/* ── Policy Panel ───────────────────────────────────────── */
+.policy-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap: 12px; }
+.policy-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; display: flex; align-items: center; gap: 12px; }
+.policy-icon { font-size: 20px; }
+.policy-info { flex: 1; }
+.policy-name { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+.policy-value { font-size: 11px; color: var(--electric); font-family: var(--mono); margin-top: 2px; }
+.policy-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+.policy-active { background: rgba(5,150,105,0.1); color: var(--neon); }
+.policy-enforced { background: rgba(220,38,38,0.1); color: var(--danger); }
+
+/* ── Chat View ──────────────────────────────────────────── */
+.chat-split { display: grid; grid-template-columns: 1fr 360px; gap: 16px; height: 100%; }
+.pay-chat-panel { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; }
+#pay-chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.chat-input-bar { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 10px; }
+.msg { display: flex; flex-direction: column; gap: 4px; }
+.msg.user { align-items: flex-end; }
+.msg.agent { align-items: flex-start; }
+.msg-bubble { max-width: 80%; padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.6; }
+.msg.user .msg-bubble { background: var(--electric); color: #fff; border-radius: 12px 12px 0 12px; }
+.msg.agent .msg-bubble { background: var(--bg-card2); border: 1px solid var(--border); border-radius: 12px 12px 12px 0; }
+.msg-meta { font-size: 10px; color: var(--text-muted); display: flex; gap: 6px; }
+.thinking { display: flex; align-items: center; padding: 10px 14px; }
+.dot-pulse { display: flex; gap: 4px; }
+.dot-pulse span { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); animation: dotbounce 1.2s infinite; }
+.dot-pulse span:nth-child(2) { animation-delay: .2s; }
+.dot-pulse span:nth-child(3) { animation-delay: .4s; }
+@keyframes dotbounce { 0%,80%,100%{transform:scale(0.8);opacity:.5}40%{transform:scale(1.1);opacity:1} }
+.quick-btns { padding: 12px 16px; border-top: 1px solid var(--border); background: var(--bg-card2); display: flex; flex-wrap: wrap; gap: 6px; }
+.pay-quick-btn { padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); font-size: 11px; background: var(--bg-surface); cursor: pointer; color: var(--text-primary); transition: all .2s; font-family: inherit; }
+.pay-quick-btn:hover { border-color: var(--electric); color: var(--electric); background: rgba(2,132,199,0.05); }
+.info-panel { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; overflow-y: auto; }
+.info-panel h4 { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+.rail-info { display: flex; flex-direction: column; gap: 8px; }
+.rail-card { background: var(--bg-card2); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+.rail-card-name { font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+.rail-card-detail { font-size: 11px; color: var(--text-secondary); display: flex; gap: 12px; }
+.chat-input { flex: 1; background: var(--bg-card2); border: 1px solid var(--border2); border-radius: 8px; padding: 8px 12px; font-size: 13px; color: var(--text-primary); font-family: inherit; outline: none; }
+.chat-input:focus { border-color: var(--electric); }
+.send-btn { background: var(--electric); color: #fff; border: none; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600; transition: all .2s; }
+.send-btn:hover { background: #0369a1; }
+
+/* ── Modal ──────────────────────────────────────────────── */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.5); z-index: 1000; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal-box { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; width: 480px; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(15,23,42,0.2); }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.modal-header h3 { font-size: 16px; font-weight: 600; }
+.modal-close { cursor: pointer; font-size: 20px; color: var(--text-muted); background: none; border: none; padding: 0; }
+.detail-grid { display: flex; flex-direction: column; gap: 8px; }
+.detail-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: var(--bg-card2); border-radius: 8px; font-size: 13px; }
+.detail-row span:first-child { font-weight: 600; color: var(--text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+.danger-text { color: var(--danger); }
+.val-status { color: var(--neon); font-weight: 600; }
+
+/* Topbar back link */
+.back-link { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); text-decoration: none; transition: color .2s; }
+.back-link:hover { color: var(--electric); }
+
+/* Section header */
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.section-title { font-size: 14px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+.badge-live { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: rgba(5,150,105,0.1); border: 1px solid rgba(5,150,105,0.2); border-radius: 10px; font-size: 10px; font-weight: 700; color: var(--neon); }
+.badge-live::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--neon); animation: blink 1.5s infinite; }
+
+/* Prevent scrollbar jitter */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 10px; }
+</style>
+</head>
+<body>
+<div class="pay-layout">
+
+  <!-- Sidebar -->
+  <div class="pay-sidebar">
+    <div class="pay-brand">
+      <div class="pay-brand-icon">💳</div>
+      <div class="pay-brand-text">
+        <div class="name">AgenticBank AI</div>
+        <div class="tag">Payment Hub</div>
+      </div>
+    </div>
+    <nav class="pay-nav">
+      <a href="#" class="pay-nav-item active" data-view="command"><span class="nav-icon">⚡</span> Command Center</a>
+      <a href="#" class="pay-nav-item" data-view="queue"><span class="nav-icon">📋</span> Payment Queue <span class="nav-badge" id="queue-badge" style="display:none">0</span></a>
+      <a href="#" class="pay-nav-item" data-view="analytics"><span class="nav-icon">📊</span> Analytics</a>
+      <a href="#" class="pay-nav-item" data-view="reconciliation"><span class="nav-icon">🔁</span> Reconciliation</a>
+      <a href="#" class="pay-nav-item" data-view="policies"><span class="nav-icon">📜</span> Policy Governance</a>
+      <a href="#" class="pay-nav-item" data-view="copilot"><span class="nav-icon">🤖</span> Payment AI Copilot</a>
+    </nav>
+    <div class="pay-sidebar-footer">
+      <div class="ws-status"><span id="ws-indicator"></span> Real-time sync active</div>
+      <div style="margin-top:8px">
+        <a href="/banker.html" class="back-link">← Back to Banker Dashboard</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="pay-main">
+
+    <!-- Topbar -->
+    <div class="pay-topbar">
+      <span style="font-size:18px">💳</span>
+      <h2 id="view-title">Payment Command Center</h2>
+      <div class="topbar-right">
+        <div class="hitl-badge"><span class="dot"></span> HITL Guards Active</div>
+        <div style="font-size:12px;color:var(--text-muted)">4 Agents Online</div>
+      </div>
+    </div>
+
+    <!-- Views -->
+    <div class="pay-content">
+
+      <!-- ── Command Center ──────────────────────────────── -->
+      <div class="pay-view active" id="view-command">
+        <div class="command-grid">
+
+          <!-- Payment Form -->
+          <div class="cmd-form-panel">
+            <h3>💸 New Payment Instruction</h3>
+            <form id="payment-form">
+              <div class="form-group">
+                <label>Customer User ID *</label>
+                <input type="text" id="pay-user-id" class="form-control" placeholder="e.g. USR-001" required>
+              </div>
+              <div class="form-group">
+                <label>From Account ID *</label>
+                <input type="text" id="pay-from-account" class="form-control" placeholder="e.g. ACC-1001" required>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Beneficiary Name *</label>
+                  <input type="text" id="pay-benef-name" class="form-control" placeholder="Beneficiary" required>
+                </div>
+                <div class="form-group">
+                  <label>Beneficiary Account *</label>
+                  <input type="text" id="pay-benef-account" class="form-control" placeholder="Account No." required>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Amount (₹) *</label>
+                  <input type="number" id="pay-amount" class="form-control" placeholder="0.00" min="1" step="0.01" required>
+                </div>
+                <div class="form-group">
+                  <label>Currency</label>
+                  <select id="pay-currency" class="form-control">
+                    <option value="INR">INR ₹</option>
+                    <option value="USD">USD $</option>
+                    <option value="EUR">EUR €</option>
+                    <option value="GBP">GBP £</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Payment Rail</label>
+                  <select id="pay-rail" class="form-control">
+                    <option value="UPI">📱 UPI — Instant</option>
+                    <option value="IMPS">⚡ IMPS — Instant 24x7</option>
+                    <option value="NEFT" selected>🏦 NEFT — Batch</option>
+                    <option value="RTGS">💰 RTGS — Real-time Gross</option>
+                    <option value="SWIFT">🌐 SWIFT — International</option>
+                    <option value="Internal">🔄 Internal Transfer</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Urgency</label>
+                  <select id="pay-urgency" class="form-control">
+                    <option value="standard">Standard</option>
+                    <option value="urgent">Urgent</option>
+                    <option value="scheduled">Scheduled</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Payment Reference</label>
+                <input type="text" id="pay-reference" class="form-control" placeholder="INV-2024-001 or leave blank">
+              </div>
+              <div class="form-group">
+                <label>Description / Narration</label>
+                <input type="text" id="pay-desc" class="form-control" placeholder="Payment purpose">
+              </div>
+              <div id="fee-estimate" class="fee-estimate">
+                <span>Select amount and rail to see fee estimate</span>
+              </div>
+              <div id="hitl-warning" class="hitl-warning">
+                <span>⚠️ This payment requires banker approval (Human-in-the-Loop)</span>
+              </div>
+              <button type="submit" id="pay-submit-btn" class="btn-pay">⚡ Execute Payment Pipeline</button>
+            </form>
+          </div>
+
+          <!-- Right: Pipeline + Stats -->
+          <div class="cmd-right">
+            <!-- Pipeline Panel -->
+            <div class="pipeline-panel" style="flex:1">
+              <div class="panel-header">
+                <span>🧠</span>
+                <span>Live Agent Pipeline</span>
+                <span class="badge-live" style="margin-left:auto">LIVE</span>
+              </div>
+              <div class="pipeline-stages">
+                <div class="pipeline-stage" id="stage-validation">
+                  <div class="stage-num">1</div> Validation
+                </div>
+                <div class="stage-connector"></div>
+                <div class="pipeline-stage" id="stage-routing">
+                  <div class="stage-num">2</div> Routing
+                </div>
+                <div class="stage-connector"></div>
+                <div class="pipeline-stage" id="stage-execution">
+                  <div class="stage-num">3</div> Execution
+                </div>
+                <div class="stage-connector"></div>
+                <div class="pipeline-stage" id="stage-settlement">
+                  <div class="stage-num">4</div> Settlement
+                </div>
+              </div>
+              <div id="pipeline-trace">
+                <div class="pipeline-empty">🔌 Pipeline ready — submit a payment to watch 4 agents orchestrate it in real-time</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Payment Queue ───────────────────────────────── -->
+      <div class="pay-view" id="view-queue">
+        <div class="section-header">
+          <div class="section-title">📋 Payment Queue <span class="badge-live">LIVE</span></div>
+          <button class="filter-btn" onclick="PaymentHub.loadPayments()" style="font-family:inherit">↻ Refresh</button>
+        </div>
+        <div class="queue-filters">
+          <button class="filter-btn active" onclick="document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');PaymentHub.filterQueue(null)">All</button>
+          <button class="filter-btn" onclick="document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');PaymentHub.filterQueue('processing')">Processing</button>
+          <button class="filter-btn" onclick="document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');PaymentHub.filterQueue('held')">Held (HITL)</button>
+          <button class="filter-btn" onclick="document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');PaymentHub.filterQueue('completed')">Completed</button>
+          <button class="filter-btn" onclick="document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');PaymentHub.filterQueue('failed')">Failed</button>
+        </div>
+        <div class="queue-panel">
+          <div class="queue-table-wrap">
+            <table class="pay-table">
+              <thead>
+                <tr>
+                  <th>Payment ID</th>
+                  <th>Beneficiary</th>
+                  <th>Amount</th>
+                  <th>Rail</th>
+                  <th>Status</th>
+                  <th>User</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="payment-queue-body">
+                <tr><td colspan="8" class="empty-row"><div class="queue-empty">Loading payments...</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Analytics ──────────────────────────────────── -->
+      <div class="pay-view" id="view-analytics">
+        <div class="section-title" style="margin-bottom:4px">📊 Payment Analytics</div>
+        <div class="analytics-grid">
+          <div class="stat-card">
+            <div class="stat-label">Total Payments</div>
+            <div class="stat-value" id="stat-total">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total Volume</div>
+            <div class="stat-value green" id="stat-volume">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Success Rate</div>
+            <div class="stat-value green" id="stat-success">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Processing</div>
+            <div class="stat-value" id="stat-processing">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Held (HITL)</div>
+            <div class="stat-value amber" id="stat-held">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Failed</div>
+            <div class="stat-value red" id="stat-failed">—</div>
+          </div>
+          <div class="stat-card wide">
+            <div class="stat-label">Rail Distribution</div>
+            <div class="rail-breakdown" id="rail-breakdown">
+              <div style="color:var(--text-muted);font-size:13px">No data yet</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Reconciliation ─────────────────────────────── -->
+      <div class="pay-view" id="view-reconciliation">
+        <div class="section-title" style="margin-bottom:12px">🔁 Reconciliation Workbench</div>
+        <div class="recon-summary">
+          <div class="recon-card">
+            <div class="recon-value green" id="recon-matched">—</div>
+            <div class="recon-label">✅ Matched</div>
+          </div>
+          <div class="recon-card">
+            <div class="recon-value red" id="recon-unmatched">—</div>
+            <div class="recon-label">❌ Exceptions</div>
+          </div>
+          <div class="recon-card">
+            <div class="recon-value" id="recon-pending">—</div>
+            <div class="recon-label">⏳ Pending Settlement</div>
+          </div>
+          <div class="recon-card">
+            <div class="recon-value amber" id="recon-held">—</div>
+            <div class="recon-label">⏸ On Hold</div>
+          </div>
+        </div>
+        <div class="recon-table-wrap">
+          <table class="pay-table">
+            <thead>
+              <tr>
+                <th>Payment ID</th>
+                <th>Beneficiary</th>
+                <th>Amount</th>
+                <th>Rail</th>
+                <th>Reconciliation Status</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="recon-table-body">
+              <tr><td colspan="6" class="empty-row"><div class="queue-empty">No payments to reconcile yet</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── Policy Governance ──────────────────────────── -->
+      <div class="pay-view" id="view-policies">
+        <div class="section-title" style="margin-bottom:12px">📜 Payment Policy Governance</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">These policies are enforced autonomously by the Payment Validation Agent before every payment. Any breach triggers a HOLD or REJECT decision requiring human review.</p>
+        <div class="policy-grid" id="policy-grid">
+        </div>
+      </div>
+
+      <!-- ── AI Payment Copilot ─────────────────────────── -->
+      <div class="pay-view" id="view-copilot">
+        <div class="section-title" style="margin-bottom:12px">🤖 Payment AI Copilot</div>
+        <div class="chat-split">
+          <div class="pay-chat-panel">
+            <div id="pay-chat-messages">
+              <div class="chat-welcome" style="text-align:center;padding:40px 20px;">
+                <div style="font-size:40px;margin-bottom:12px">💳</div>
+                <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:8px">Payment AI Copilot</div>
+                <div style="font-size:13px;color:var(--text-muted)">Ask me to initiate payments, check status, analyze routing, or explain any payment scenario in natural language.</div>
+              </div>
+            </div>
+            <div class="quick-btns">
+              <button class="pay-quick-btn" data-msg="What payment rails are available and when should I use each?">Rail comparison</button>
+              <button class="pay-quick-btn" data-msg="Show me payments that are currently on hold and explain why">Held payments</button>
+              <button class="pay-quick-btn" data-msg="How does the duplicate payment detection work?">Duplicate detection</button>
+              <button class="pay-quick-btn" data-msg="What are the HITL guardrails for high-value payments?">HITL guardrails</button>
+              <button class="pay-quick-btn" data-msg="Explain the payment validation pipeline step by step">Pipeline walkthrough</button>
+              <button class="pay-quick-btn" data-msg="What happens to a SWIFT payment and why does it need approval?">SWIFT process</button>
+            </div>
+            <div class="chat-input-bar">
+              <input type="text" id="pay-chat-input" class="chat-input" placeholder="Ask about payments, status, routes, or request an action...">
+              <button id="pay-chat-send" class="send-btn">Send</button>
+            </div>
+          </div>
+
+          <!-- Info panel -->
+          <div class="info-panel">
+            <h4>🔀 Payment Rail Guide</h4>
+            <div class="rail-info">
+              <div class="rail-card">
+                <div class="rail-card-name">📱 UPI</div>
+                <div class="rail-card-detail"><span>Limit: ₹1L</span><span>Speed: Instant</span><span>Fee: Free</span></div>
+              </div>
+              <div class="rail-card">
+                <div class="rail-card-name">⚡ IMPS</div>
+                <div class="rail-card-detail"><span>Limit: ₹5L</span><span>Speed: &lt;30s</span><span>Fee: ₹5–15</span></div>
+              </div>
+              <div class="rail-card">
+                <div class="rail-card-name">🏦 NEFT</div>
+                <div class="rail-card-detail"><span>Limit: None</span><span>Speed: 30 min</span><span>Fee: ₹2–25</span></div>
+              </div>
+              <div class="rail-card">
+                <div class="rail-card-name">💰 RTGS</div>
+                <div class="rail-card-detail"><span>Min: ₹2L</span><span>Speed: Real-time</span><span>Fee: ₹25–50</span></div>
+              </div>
+              <div class="rail-card">
+                <div class="rail-card-name">🌐 SWIFT</div>
+                <div class="rail-card-detail"><span>International</span><span>1–3 days</span><span>Fee: ₹500–2000</span></div>
+              </div>
+              <div class="rail-card">
+                <div class="rail-card-name">🔄 Internal</div>
+                <div class="rail-card-detail"><span>Same bank</span><span>Instant</span><span>Fee: Free</span></div>
+              </div>
+            </div>
+            <div style="margin-top:14px;padding:12px;background:rgba(220,38,38,0.06);border:1px solid rgba(220,38,38,0.15);border-radius:10px;">
+              <div style="font-size:11px;font-weight:700;color:var(--danger);margin-bottom:6px">✋ HITL Gates</div>
+              <div style="font-size:11px;color:var(--text-secondary);line-height:1.6">
+                • Amount > ₹5,00,000 → Banker approval<br>
+                • All SWIFT payments → Compliance review<br>
+                • Velocity breach → Manual review<br>
+                • Sanctions hit → Immediate hold
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /pay-content -->
+  </div><!-- /pay-main -->
+</div><!-- /pay-layout -->
+
+<!-- Payment Detail Modal -->
+<div class="modal-overlay" id="payment-detail-modal" onclick="if(event.target===this)PaymentHub.closeModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>💳 Payment Details</h3>
+      <button class="modal-close" onclick="PaymentHub.closeModal()">✕</button>
+    </div>
+    <div id="payment-detail-body"></div>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+<script src="/js/payment.js"></script>
+<script>
+// Filter queue by status
+PaymentHub.filterQueue = function(status) {
+  const rows = document.querySelectorAll('#payment-queue-body .queue-row');
+  rows.forEach(row => {
+    if (!status) { row.style.display = ''; return; }
+    const badge = row.querySelector('.status-badge');
+    if (badge && badge.textContent.trim() === status) row.style.display = '';
+    else row.style.display = 'none';
+  });
+};
+
+// Update view title
+document.querySelectorAll('.pay-nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    const titles = { command: '⚡ Payment Command Center', queue: '📋 Payment Queue', analytics: '📊 Analytics', reconciliation: '🔁 Reconciliation Workbench', policies: '📜 Policy Governance', copilot: '🤖 Payment AI Copilot' };
+    const el = document.getElementById('view-title');
+    if (el) el.textContent = titles[item.dataset.view] || 'Payment Hub';
+  });
+});
+</script>
+</body>
+</html>

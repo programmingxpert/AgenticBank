@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Customer Portal — AgenticBank AI</title>
+<meta name="description" content="AgenticBank AI Customer Portal: AI concierge, loan pipeline, memory inspector, and transaction lab.">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<link rel="stylesheet" href="/css/styles.css">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* Payment Pipeline & Tables styling */
+.pipeline-stage { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--text-muted); }
+.pipeline-stage .stage-num { width: 18px; height: 18px; border-radius: 50%; background: var(--border); color: var(--text-muted); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
+.stage-active { color: var(--electric) !important; }
+.stage-active .stage-num { background: var(--electric) !important; color: #fff !important; }
+.stage-complete { color: var(--neon) !important; }
+.stage-complete .stage-num { background: var(--neon) !important; color: #fff !important; }
+.stage-hold { color: var(--amber) !important; }
+.stage-hold .stage-num { background: var(--amber) !important; color: #fff !important; }
+.stage-failed { color: var(--danger) !important; }
+.stage-failed .stage-num { background: var(--danger) !important; color: #fff !important; }
+
+table.pay-table th { padding: 8px 10px; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+table.pay-table td { padding: 10px; border-bottom: 1px solid var(--border); }
+.pay-id { font-family: var(--mono); font-size: 10px; color: var(--electric); }
+.status-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; }
+.badge-success { background: rgba(5,150,105,0.1); color: var(--neon); }
+.badge-info { background: rgba(2,132,199,0.1); color: var(--electric); }
+.badge-warning { background: rgba(217,119,6,0.1); color: var(--amber); }
+.badge-danger { background: rgba(220,38,38,0.1); color: var(--danger); }
+.badge-muted { background: var(--bg-card2); color: var(--text-muted); }
+.badge-violet { background: rgba(124,58,237,0.1); color: var(--violet); }
+.badge-pulse { animation: pulse 1.5s infinite; }
+
+.trace-entry { display: flex; gap: 8px; padding: 8px; border-radius: 8px; background: var(--bg-card2); border: 1px solid var(--border); animation: fadeInUp 0.3s ease; }
+.trace-icon { font-size: 16px; flex-shrink: 0; }
+.trace-body { flex: 1; min-width: 0; }
+.trace-agent { font-size: 9px; font-weight: 700; color: var(--electric); text-transform: uppercase; margin-bottom: 2px; }
+.trace-content { font-size: 12px; color: var(--text-primary); line-height: 1.4; }
+.trace-time { font-size: 9px; color: var(--text-muted); font-family: var(--mono); }
+
+/* Modal overlays for customer.html */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.5); z-index: 1000; align-items: center; justify-content: center; }
+.modal-box { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; width: 480px; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(15,23,42,0.2); }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.modal-header h3 { font-size: 16px; font-weight: 600; }
+.modal-close { cursor: pointer; font-size: 20px; color: var(--text-muted); background: none; border: none; padding: 0; }
+.detail-grid { display: flex; flex-direction: column; gap: 8px; }
+.detail-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: var(--bg-card2); border-radius: 8px; font-size: 13px; }
+.detail-row span:first-child { font-weight: 600; color: var(--text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+.val-status { color: var(--neon); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-brand">
+      <span class="brand-icon">🏦</span>
+      <div>
+        <span class="brand-name">AgenticBank AI</span>
+        <span class="brand-tag">Customer Portal</span>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-view="dashboard"><span class="nav-icon">📊</span> Overview</a>
+      <a href="#" class="nav-item" data-view="chat"><span class="nav-icon">💬</span> AI Concierge</a>
+      <a href="#" class="nav-item" data-view="accounts"><span class="nav-icon">💳</span> Accounts</a>
+      <a href="#" class="nav-item" data-view="investments"><span class="nav-icon">📈</span> Investments</a>
+      <a href="#" class="nav-item" data-view="loans"><span class="nav-icon">🏦</span> Loans</a>
+      <a href="#" class="nav-item" data-view="transactions"><span class="nav-icon">📜</span> Transactions</a>
+      <a href="#" class="nav-item" data-view="simulator"><span class="nav-icon">🧪</span> Transaction Lab</a>
+      <a href="#" class="nav-item" data-view="memory"><span class="nav-icon">🧠</span> Memory Inspector</a>
+      <a href="#" class="nav-item" data-view="payments" style="margin-top:8px;border-top:1px solid var(--border);padding-top:12px"><span class="nav-icon">💳</span> Payment Hub <span style="font-size:9px;background:rgba(124,58,237,.15);color:#7c3aed;padding:1px 5px;border-radius:4px;margin-left:4px">NEW</span></a>
+    </nav>
+    <div class="sidebar-agents">
+      <div class="agents-title">AI Agents</div>
+      <div id="agent-status-list"></div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="api-status">
+        <div class="status-dot simulation"></div>
+        <span class="status-text">Connecting...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <main class="main-content">
+    <header class="topbar">
+      <div class="page-title" id="page-title">Overview</div>
+      <div class="topbar-right">
+        <div class="user-selector">
+          <label style="font-size:12px;color:var(--text-muted)">Customer:</label>
+          <select id="user-select" class="select-premium" style="min-width:220px"></select>
+        </div>
+        <a href="/" style="font-size:12px;color:var(--text-muted);text-decoration:none">← Home</a>
+      </div>
+    </header>
+
+    <div class="view-container">
+
+      <!-- OVERVIEW -->
+      <div id="view-dashboard" class="view active">
+        <div class="stats-grid" id="stats-grid"></div>
+        <div class="dashboard-grid">
+          <div class="card card-lg">
+            <div class="card-header"><h3>Recent Transactions</h3><span class="card-badge live">LIVE</span></div>
+            <div class="card-body" id="recent-transactions"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>Active Loans</h3></div>
+            <div class="card-body" id="active-loans"></div>
+          </div>
+        </div>
+        <!-- Payment Hub Quick Launch -->
+        <a href="#" onclick="App.switchView('payments'); document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active')); document.querySelector('[data-view=\'payments\']')?.classList.add('active'); const titleEl = document.getElementById('page-title'); if (titleEl) titleEl.textContent = 'Payment Hub'; event.preventDefault();" style="display:block;text-decoration:none;margin-top:16px">
+          <div style="background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);border:1px solid rgba(124,58,237,0.3);border-radius:16px;padding:20px 24px;display:flex;align-items:center;gap:20px;transition:all .2s;cursor:pointer" onmouseover="this.style.borderColor='rgba(124,58,237,0.6)';this.style.boxShadow='0 8px 30px rgba(124,58,237,0.15)'" onmouseout="this.style.borderColor='rgba(124,58,237,0.3)';this.style.boxShadow='none'">
+            <div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#7c3aed,#0284c7);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0">💳</div>
+            <div style="flex:1">
+              <div style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;color:#fff;margin-bottom:4px">Autonomous Payment Hub</div>
+              <div style="font-size:12px;color:rgba(255,255,255,0.5);line-height:1.5">Send money via UPI · NEFT · RTGS · SWIFT · IMPS — with real-time pipeline visibility and AI guardrails</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-shrink:0">
+              <span style="font-size:10px;background:rgba(5,150,105,0.2);color:#34d399;padding:3px 10px;border-radius:10px;border:1px solid rgba(5,150,105,0.3)">4 Agents</span>
+              <span style="font-size:10px;background:rgba(220,38,38,0.15);color:#f87171;padding:3px 10px;border-radius:10px;border:1px solid rgba(220,38,38,0.3)">HITL Guards</span>
+            </div>
+            <div style="font-size:18px;color:rgba(255,255,255,0.3)">→</div>
+          </div>
+        </a>
+      </div>
+
+      <!-- AI CONCIERGE -->
+      <div id="view-chat" class="view">
+        <div class="chat-split" style="height:calc(100vh - 120px)">
+          <!-- Chat Sessions Sidebar -->
+          <div class="card sessions-panel" style="display:flex;flex-direction:column;overflow:hidden">
+            <div class="card-header" style="flex-shrink:0;padding:12px 14px;border-bottom:1px solid var(--border)">
+              <button id="new-session-btn" class="btn-primary" onclick="Chat.createNewSession()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;padding:8px 12px">
+                <span>➕</span> NEW SESSION
+              </button>
+            </div>
+            <div id="sessions-list" class="sessions-list" style="flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px">
+              <!-- Sessions will be loaded here dynamically -->
+            </div>
+          </div>
+
+          <div class="card" style="display:flex;flex-direction:column;overflow:hidden">
+            <div class="card-header" style="flex-shrink:0">
+              <h3>AI Concierge</h3>
+              <div style="display:flex;align-items:center;gap:10px">
+                <span id="current-agent-badge" class="msg-agent-badge">🧠 Orchestrator</span>
+                <span class="card-badge">DEEPSEEK</span>
+              </div>
+            </div>
+            <div id="chat-messages" class="chat-messages">
+              <div class="chat-welcome">
+                <div class="welcome-icon">🤖</div>
+                <h2>Your AI Banking Concierge</h2>
+                <p>Powered by multi-agent intelligence. I route your requests to specialized agents for transactions, fraud, loans, investments, and compliance.</p>
+                <div class="quick-actions">
+                  <button class="quick-btn" data-msg="What's my current balance?">💰 Balance</button>
+                  <button class="quick-btn" data-msg="Show my recent transactions and flag anything suspicious">📜 Transactions</button>
+                  <button class="quick-btn" data-msg="I need to transfer ₹500 to another account">💸 Transfer</button>
+                  <button class="quick-btn" data-msg="Analyze my spending patterns this month">📊 Spending</button>
+                  <button class="quick-btn" data-msg="I want to apply for a personal loan of ₹10,000">🏦 Loan</button>
+                  <button class="quick-btn" data-msg="Is there any suspicious activity on my account?">🛡️ Fraud Check</button>
+                  <button class="quick-btn" data-msg="What investment recommendations do you have for me?">📈 Investments</button>
+                  <button class="quick-btn" data-msg="Check my KYC and compliance status">📋 Compliance</button>
+                </div>
+              </div>
+            </div>
+            <div class="chat-input-area">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:11px;color:var(--text-muted)">
+                <span>ReAct reasoning active — tool calls visible in trace panel →</span>
+              </div>
+              <div class="chat-input-wrapper" style="position:relative; display:flex; gap:8px;">
+                <button id="chat-tts-btn" class="chat-send-btn" title="Toggle Text-to-Speech" onclick="const e=window.AudioService.toggleTTS(); this.textContent=e?'🔊':'🔇';" style="background:var(--bg-surface); color:var(--text-primary); border:1px solid var(--border);">🔊</button>
+                <button id="chat-stt-btn" class="chat-send-btn" title="Voice Input" onclick="Chat.toggleVoiceMode()" style="background:var(--bg-surface); color:var(--text-primary); border:1px solid var(--border);">🎤</button>
+                <input type="text" id="chat-input" class="chat-input" placeholder="Ask anything about your banking needs..." autocomplete="off" style="flex:1;">
+                <button id="chat-send-btn" class="chat-send-btn" title="Send">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <!-- Trace Panel -->
+          <div class="trace-panel">
+            <div class="trace-panel-header">
+              <h4><span class="trace-live-dot"></span> ReAct Trace</h4>
+              <button onclick="document.getElementById('trace-log').innerHTML=''" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:11px">Clear</button>
+            </div>
+            <div id="trace-log" class="trace-log">
+              <div class="trace-entry system"><div class="trace-label">⚠️ SYSTEM</div>Awaiting agent activity...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACCOUNTS -->
+      <div id="view-accounts" class="view">
+        <div style="margin-bottom:20px"><h2 style="font-family:'Space Grotesk',sans-serif;font-size:20px">Your Accounts</h2></div>
+        <div class="accounts-grid" id="accounts-grid"></div>
+      </div>
+
+      <!-- INVESTMENTS -->
+      <div id="view-investments" class="view">
+        <div class="portfolio-grid">
+          <div class="card">
+            <div class="card-header">
+              <h3>Portfolio</h3>
+              <span class="stat-value blue" id="portfolio-value" style="font-size:18px">₹0.00</span>
+            </div>
+            <div class="card-body" id="holdings-table"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>Market</h3></div>
+            <div class="card-body" id="market-ticker" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LOANS -->
+      <div id="view-loans" class="view">
+        <div class="card">
+          <div class="card-header">
+            <h3>Loans & Credit</h3>
+            <button class="btn-primary" onclick="App.switchView('chat');setTimeout(()=>{document.getElementById('chat-input').value='I want to apply for a personal loan of ₹15,000';document.getElementById('chat-send-btn').click();},100)">+ Apply for Loan</button>
+          </div>
+          <div class="card-body"><div id="loans-grid" class="accounts-grid"></div></div>
+        </div>
+        <div class="card" style="margin-top:20px">
+          <div class="card-header"><h3>🔬 Multi-Agent Loan Pipeline</h3><span class="card-badge">6 AGENTS</span></div>
+          <div class="card-body">
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">Simulate the full 6-agent loan processing pipeline inspired by LangGraph orchestration.</p>
+            <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+              <input id="pipeline-amount" class="input-premium" type="number" placeholder="Loan amount (e.g. 25000)" style="max-width:200px">
+              <input id="pipeline-purpose" class="input-premium" type="text" placeholder="Purpose (e.g. home renovation)" style="max-width:200px">
+              <button class="btn-primary" onclick="Pipeline.run()">▶ Run Pipeline</button>
+            </div>
+            <div class="pipeline-container">
+              <div class="pipeline-nodes" id="pipeline-nodes"></div>
+              <div id="pipeline-result" style="display:none"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TRANSACTIONS -->
+      <div id="view-transactions" class="view">
+        <div class="card">
+          <div class="card-header">
+            <h3>Transaction History</h3>
+            <select class="select-premium" id="txn-account-filter" style="width:auto"></select>
+          </div>
+          <div class="card-body transactions-table-wrap">
+            <table class="transactions-table">
+              <thead><tr><th>Date</th><th>Merchant</th><th>Category</th><th>Amount</th><th>Risk Score</th><th>Status</th></tr></thead>
+              <tbody id="transactions-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- SIMULATOR -->
+      <div id="view-simulator" class="view">
+        <div class="simulator-grid">
+          <div class="card">
+            <div class="card-header"><h3>Manual Transaction</h3></div>
+            <div class="card-body">
+              <form class="sim-form" id="sim-transaction-form">
+                <div class="form-group"><label>Account</label><select id="sim-account" class="input-premium"></select></div>
+                <div class="form-row">
+                  <div class="form-group"><label>Amount</label><input type="number" id="sim-amount" class="input-premium" step="0.01" placeholder="0.00"></div>
+                  <div class="form-group"><label>Type</label><select id="sim-type" class="input-premium"><option value="debit">Debit (spend)</option><option value="credit">Credit (receive)</option></select></div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group"><label>Merchant</label><input type="text" id="sim-merchant" class="input-premium" placeholder="e.g. Amazon"></div>
+                  <div class="form-group"><label>Category</label><input type="text" id="sim-category" class="input-premium" placeholder="e.g. Shopping"></div>
+                </div>
+                <div style="margin-top:12px"><label style="font-size:11px;color:var(--text-muted);margin-bottom:6px;display:block">AI RISK SCORE</label><div class="risk-gauge" id="risk-gauge"><div class="risk-gauge-fill" id="risk-gauge-fill" style="width:0%"></div></div><div id="risk-gauge-label" style="font-size:11px;color:var(--text-muted);margin-top:4px;font-family:var(--mono)">Risk: 0% — LOW</div></div>
+                <button type="submit" class="btn-primary" style="margin-top:16px;width:100%">⚡ Simulate Transaction</button>
+              </form>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><h3>Fund Transfer</h3></div>
+            <div class="card-body">
+              <form class="sim-form" id="sim-transfer-form">
+                <div class="form-group"><label>From Account</label><select id="sim-from" class="input-premium"></select></div>
+                <div class="form-group"><label>To (Account ID or External)</label>
+                  <div class="transfer-input-group">
+                    <input type="text" id="sim-to" class="input-premium" placeholder="Select below or type ID">
+                    <div class="recipient-suggestions" id="recipient-suggestions" style="display:none"></div>
+                  </div>
+                </div>
+                <div class="form-group"><label>Amount</label><input type="number" id="sim-transfer-amount" class="input-premium" step="0.01" placeholder="0.00"></div>
+                <div class="form-group"><label>Description <span style="color:var(--text-muted);font-size:10px">(Social engineering test field)</span></label><input type="text" id="sim-transfer-desc" class="input-premium" placeholder="e.g. URGENT: fee for lottery prize release"></div>
+                <button type="submit" class="btn-primary" style="margin-top:16px;width:100%">💸 Execute Transfer</button>
+              </form>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><h3>Automated Scenarios</h3></div>
+            <div class="card-body">
+              <div class="scenario-btns">
+                <button class="btn-scenario" data-scenario="normal">🛒 Normal Shopping Day (10 transactions)</button>
+                <button class="btn-scenario" data-scenario="payday">💰 Payday & Bills (6 transactions)</button>
+                <button class="btn-scenario" data-scenario="fraud">🚨 Fraud Attack (5 high-risk transactions)</button>
+              </div>
+              <div style="margin-top:16px"><div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">SCENARIO LOG</div><div class="scenario-log" id="scenario-log"><p style="opacity:.5">Select a scenario to run...</p></div></div>
+            </div>
+          </div>
+
+          <div class="card" style="grid-column:span 2">
+            <div class="card-header">
+              <h3>🔧 MCP Tool Invocator</h3>
+              <span style="font-size:11px;color:var(--text-muted)">Model Context Protocol · Direct Tool Access</span>
+            </div>
+            <div class="card-body">
+              <div class="mcp-tools-grid" id="mcp-tools-grid"></div>
+              <div id="mcp-invoke-area" style="display:none">
+                <div style="font-size:13px;font-weight:600;color:var(--electric);margin-bottom:12px" id="mcp-selected-name"></div>
+                <div class="form-row" id="mcp-params"></div>
+                <button class="btn-primary" id="mcp-invoke-btn" onclick="Simulator.invokeMCPTool()">⚡ Invoke Tool</button>
+              </div>
+              <div id="mcp-result" class="mcp-result" style="display:none"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MEMORY INSPECTOR -->
+      <div id="view-memory" class="view">
+        <div style="display:grid;grid-template-columns:1fr 320px;gap:20px">
+          <div class="card">
+            <div class="card-header">
+              <h3>🧠 Agent Memory Inspector</h3>
+              <span style="font-size:11px;color:var(--text-muted)">Records: <strong id="memory-count">0</strong></span>
+            </div>
+            <div class="card-body">
+              <div class="memory-tabs">
+                <button class="mem-tab active" data-tab="working">⚡ Working</button>
+                <button class="mem-tab" data-tab="semantic">📚 Semantic</button>
+                <button class="mem-tab" data-tab="episodic">📖 Episodic</button>
+                <button class="mem-tab" data-tab="procedural">⚙️ Procedural</button>
+              </div>
+              <div id="memory-viewer"></div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div class="card">
+              <div class="card-header"><h3>Memory Stats</h3></div>
+              <div class="card-body">
+                <div class="stat-card" style="margin-bottom:10px"><div class="stat-label">Semantic Facts</div><div class="stat-value blue" id="semantic-count">0</div></div>
+                <div class="stat-card" style="margin-bottom:10px"><div class="stat-label">Episodic Events</div><div class="stat-value green" id="episodic-count">0</div></div>
+                <div class="stat-card"><div class="stat-label">Workflows Completed</div><div class="stat-value amber" id="workflow-count">0</div></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>Memory Types</h3></div>
+              <div class="card-body" style="font-size:12px;color:var(--text-secondary);line-height:1.8">
+                <div style="margin-bottom:8px"><strong style="color:var(--electric)">⚡ Working:</strong> Current session state, intent, cognitive load</div>
+                <div style="margin-bottom:8px"><strong style="color:var(--neon)">📚 Semantic:</strong> Known facts — balance, credit score, profile</div>
+                <div style="margin-bottom:8px"><strong style="color:var(--violet)">📖 Episodic:</strong> Timestamped event log with importance</div>
+                <div><strong style="color:var(--amber)">⚙️ Procedural:</strong> Current workflow step and history</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAYMENT HUB -->
+      <div id="view-payments" class="view">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+          <!-- Left: New Payment Form -->
+          <div class="card">
+            <div class="card-header"><h3>💸 New Payment Instruction</h3></div>
+            <div class="card-body">
+              <form id="payment-form">
+                <div class="form-group" style="margin-bottom:12px">
+                  <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px">Customer User ID</label>
+                  <input type="text" id="pay-user-id" class="form-control" style="width:100%;padding:8px;background:var(--bg-card2);border:1px solid var(--border);border-radius:6px;color:var(--text-primary)" readonly>
+                </div>
+                <div class="form-group" style="margin-bottom:12px">
+                  <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px">From Account ID *</label>
+                  <select id="pay-from-account" class="select-premium" style="width:100%;padding:8px;background:var(--bg-card2);border:1px solid var(--border);border-radius:6px;color:var(--text-primary)" required></select>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                  <div class="form-group">
+                    <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px">Beneficiary Name *</label>
+                    <input type="text" id="pay-benef-name" class="form-control" style="width:100%;padding:8px;background:var(--bg-card2);border:1px solid var(--border);border-radius:6px;color:var(--text-primary)" placeholder="Beneficiary Name" required>
+                  </div>
+                  <div class="form-group">
+                    <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px">Beneficiary Account *</label>
+                    <input type="text" id="pay-benef-account" class="form-control" style="width:100%;padding:8px;background:var(--bg-card2);border:1px solid var(--border);border-radius:6px;color:var(--text-primary)" placeholder="Account Number" required>
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                  <div class="form-group">
+                    <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px">Amount (₹) *</label>
+                    <input type="number" id="pay-amount" class="form-control" style="width:100%;padding:8px;background:var(--bg-card2);border:1px solid var(--border);border-radius:6px;color:var(--text-primary)" placeholder="0.00" min="1" step="0.01" required>
+                  </div>
+                  <div class="form-group">
+                    <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px">Payment Rail</label>
+                    <select id="pay-rail" class="select-premium" style="width:100%;padding:8px;background:var(--bg-card2);border:1px solid var(--border);border-radius:6px;color:var(--text-primary)">
+                      <option value="UPI">📱 UPI — Instant</option>
+                      <option value="IMPS">⚡ IMPS — Instant 24x7</option>
+                      <option value="NEFT" selected>🏦 NEFT — Batch</option>
+                      <option value="RTGS">💰 RTGS — Real-time Gross</option>
+                      <option value="SWIFT">🌐 SWIFT — International</option>
+                      <option value="Internal">🔄 Internal Transfer</option>
+                    </select>
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                  <div class="form-group">
+                    <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px">Urgency</label>
+                    <select id="pay-urgency" class="select-premium" style="width:100%;padding:8px;background:var(--bg-card2);border:1px solid var(--border);border-radius:6px;color:var(--text-primary)">
+                      <option value="standard">Standard</option>
+                      <option value="urgent">Urgent</option>
+                      <option value="scheduled">Scheduled</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px">Currency</label>
+                    <select id="pay-currency" class="select-premium" style="width:100%;padding:8px;background:var(--bg-card2);border:1px solid var(--border);border-radius:6px;color:var(--text-primary)">
+                      <option value="INR">INR ₹</option>
+                      <option value="USD">USD $</option>
+                      <option value="EUR">EUR €</option>
+                      <option value="GBP">GBP £</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group" style="margin-bottom:12px">
+                  <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px">Payment Reference</label>
+                  <input type="text" id="pay-reference" class="form-control" style="width:100%;padding:8px;background:var(--bg-card2);border:1px solid var(--border);border-radius:6px;color:var(--text-primary)" placeholder="Optional reference">
+                </div>
+                <div class="form-group" style="margin-bottom:16px">
+                  <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px">Description / Narration</label>
+                  <input type="text" id="pay-desc" class="form-control" style="width:100%;padding:8px;background:var(--bg-card2);border:1px solid var(--border);border-radius:6px;color:var(--text-primary)" placeholder="Payment purpose">
+                </div>
+                
+                <div id="fee-estimate" style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary);padding:8px 12px;background:var(--bg-card2);border-radius:8px;border:1px solid var(--border);margin-bottom:14px">
+                  <span>Select amount and rail to see fee estimate</span>
+                </div>
+                <div id="hitl-warning" style="display:none;align-items:center;gap:10px;padding:10px 14px;background:rgba(220,38,38,0.06);border:1px solid rgba(220,38,38,0.2);border-radius:8px;font-size:12px;color:var(--danger);margin-bottom:14px">
+                  <span>⚠️ This payment requires banker approval (Human-in-the-Loop)</span>
+                </div>
+                
+                <button type="submit" id="pay-submit-btn" class="btn-primary" style="width:100%;padding:12px;font-size:14px;font-weight:600">⚡ Execute Payment Pipeline</button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Right: Live Pipeline -->
+          <div class="card" style="display:flex;flex-direction:column;height:100%">
+            <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+              <h3>🧠 Live Agent Pipeline</h3>
+              <span class="card-badge live">LIVE</span>
+            </div>
+            <div class="card-body" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+              <div class="pipeline-stages" style="display:flex;align-items:center;padding:10px;background:var(--bg-card2);border-bottom:1px solid var(--border);margin-bottom:12px;border-radius:8px">
+                <div class="pipeline-stage" id="stage-validation" style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--text-muted)">
+                  <div class="stage-num" style="width:16px;height:16px;border-radius:50%;background:var(--border);color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700">1</div> Valid
+                </div>
+                <div class="stage-connector" style="flex:1;height:2px;background:var(--border);max-width:20px"></div>
+                <div class="pipeline-stage" id="stage-routing" style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--text-muted)">
+                  <div class="stage-num" style="width:16px;height:16px;border-radius:50%;background:var(--border);color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700">2</div> Route
+                </div>
+                <div class="stage-connector" style="flex:1;height:2px;background:var(--border);max-width:20px"></div>
+                <div class="pipeline-stage" id="stage-execution" style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--text-muted)">
+                  <div class="stage-num" style="width:16px;height:16px;border-radius:50%;background:var(--border);color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700">3</div> Exec
+                </div>
+                <div class="stage-connector" style="flex:1;height:2px;background:var(--border);max-width:20px"></div>
+                <div class="pipeline-stage" id="stage-settlement" style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--text-muted)">
+                  <div class="stage-num" style="width:16px;height:16px;border-radius:50%;background:var(--border);color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700">4</div> Recon
+                </div>
+              </div>
+              <div id="pipeline-trace" style="flex:1;overflow-y:auto;max-height:360px;display:flex;flex-direction:column;gap:8px">
+                <div class="pipeline-empty" style="color:var(--text-muted);font-size:13px;text-align:center;padding:40px 20px">Pipeline ready — submit a payment to watch agents work in real-time</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:20px">
+          <!-- Bottom Left: Payment Queue / History -->
+          <div class="card">
+            <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+              <h3>📋 My Payments History</h3>
+              <button class="btn-secondary" onclick="PaymentHub.loadPayments()" style="padding:4px 8px;font-size:11px">Refresh</button>
+            </div>
+            <div class="card-body" style="padding:0">
+              <div style="overflow-x:auto">
+                <table class="pay-table" style="width:100%;border-collapse:collapse;font-size:12px">
+                  <thead>
+                    <tr style="background:var(--bg-card2);border-bottom:1px solid var(--border)">
+                      <th style="padding:10px;text-align:left">ID</th>
+                      <th style="padding:10px;text-align:left">Beneficiary</th>
+                      <th style="padding:10px;text-align:left">Amount</th>
+                      <th style="padding:10px;text-align:left">Rail</th>
+                      <th style="padding:10px;text-align:left">Status</th>
+                      <th style="padding:10px;text-align:left">Created</th>
+                    </tr>
+                  </thead>
+                  <tbody id="payment-queue-body">
+                    <tr><td colspan="6" style="padding:20px;text-align:center;color:var(--text-muted)">Loading payments...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Right: Payment Copilot Chat -->
+          <div class="card" style="display:flex;flex-direction:column;height:100%">
+            <div class="card-header"><h3>🤖 Payment AI Copilot</h3></div>
+            <div class="card-body" style="flex:1;display:flex;flex-direction:column;overflow:hidden;padding:0">
+              <div id="pay-chat-messages" style="height:220px;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px">
+                <div class="chat-welcome" style="text-align:center;padding:20px 10px;">
+                  <div style="font-size:30px;margin-bottom:8px">💳</div>
+                  <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:4px">Payment AI Copilot</div>
+                  <div style="font-size:11px;color:var(--text-muted)">Ask me about your payment status, rails, or limits in natural language.</div>
+                </div>
+              </div>
+              <div class="quick-btns" style="padding:6px;border-top:1px solid var(--border);background:var(--bg-card2);display:flex;flex-wrap:wrap;gap:4px">
+                <button class="pay-quick-btn" data-msg="What payment rails are available?" style="font-size:10px;padding:3px 8px">Rails Info</button>
+                <button class="pay-quick-btn" data-msg="What are the limits on payments?" style="font-size:10px;padding:3px 8px">Limits</button>
+                <button class="pay-quick-btn" data-msg="Explain the payment pipeline step by step" style="font-size:10px;padding:3px 8px">Pipeline</button>
+              </div>
+              <div class="chat-input-bar" style="padding:8px;border-top:1px solid var(--border);display:flex;gap:6px">
+                <input type="text" id="pay-chat-input" class="chat-input" style="flex:1;padding:6px;font-size:12px;background:var(--bg-card2);border:1px solid var(--border2);border-radius:6px;color:var(--text-primary)" placeholder="Ask about payments...">
+                <button id="pay-chat-send" class="send-btn" style="padding:6px 12px;font-size:12px">Send</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payment Detail Modal -->
+      <div class="modal-overlay" id="payment-detail-modal" onclick="if(event.target===this)PaymentHub.closeModal()">
+        <div class="modal-box">
+          <div class="modal-header">
+            <h3>💳 Payment Details</h3>
+            <button class="modal-close" onclick="PaymentHub.closeModal()">✕</button>
+          </div>
+          <div id="payment-detail-body"></div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+<div class="toast-container" id="toast-container"></div>
+
+<div class="agent-hub" id="agent-hub">
+  <div class="agent-hub-badge">14</div>
+  <button class="agent-hub-btn" onclick="App.toggleAgentHub()">🤖</button>
+  <div class="agent-hub-panel" id="agent-hub-panel">
+    <div class="agent-hub-header">
+      <h3><span>🤖</span> AI Agent Repository</h3>
+      <button onclick="App.toggleAgentHub()" style="background:none;border:none;color:var(--text-muted);cursor:pointer">✕</button>
+    </div>
+    <div class="agent-hub-grid" id="agent-hub-grid">
+      <!-- Populated via JS -->
+    </div>
+  </div>
+</div>
+
+<script src="/js/audio.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/dashboard.js"></script>
+<script src="/js/chat.js"></script>
+<script src="/js/simulator.js"></script>
+<script src="/js/memory.js"></script>
+<script src="/js/payment.js"></script>
+<script>
+// MCP invoke area toggle
+function selectMCPTool(name) {
+  Simulator.selectMCPTool(name);
+  const area = document.getElementById('mcp-invoke-area');
+  const result = document.getElementById('mcp-result');
+  if (area) area.style.display = 'block';
+  if (result) { result.style.display = 'block'; result.textContent = 'Ready to invoke...'; }
+}
+
+// Loan Pipeline module
+const Pipeline = {
+  nodes: ['extractor','database_lookup','compliance','analyst','risk','underwriter','decision'],
+  nodeLabels: {'extractor':'Data Extractor','database_lookup':'DB Lookup','compliance':'Compliance','analyst':'Credit Analyst','risk':'Risk Assessment','underwriter':'Underwriter','decision':'Decision'},
+  nodeIcons: {'extractor':'📄','database_lookup':'🗄️','compliance':'📋','analyst':'📊','risk':'⚖️','underwriter':'🔍','decision':'⚡'},
+
+  init() {
+    const container = document.getElementById('pipeline-nodes');
+    if (!container) return;
+    container.innerHTML = this.nodes.map(n => `
+      <div class="pipeline-node" id="pnode-${n}" style="opacity:.4">
+        <div class="node-circle" id="pcircle-${n}">${this.nodeIcons[n]}</div>
+        <div class="node-label">${this.nodeLabels[n]}</div>
+        <div class="node-status" id="pstatus-${n}" style="color:var(--text-muted)">IDLE</div>
+      </div>`).join('<div style="flex:1;min-width:20px"></div>');
+  },
+
+  setNodeState(nodeId, state, result) {
+    const node = document.getElementById(`pnode-${nodeId}`);
+    const circle = document.getElementById(`pcircle-${nodeId}`);
+    const status = document.getElementById(`pstatus-${nodeId}`);
+    if (!node) return;
+    node.classList.remove('processing','complete','rejected','skipped');
+    node.style.opacity = '1';
+    node.classList.add(state);
+    if (status) {
+      status.textContent = state.toUpperCase();
+      status.style.color = state==='complete'?'var(--neon)':state==='processing'?'var(--amber)':state==='rejected'?'var(--danger)':'var(--text-muted)';
+    }
+  },
+
+  async run() {
+    const amount = document.getElementById('pipeline-amount')?.value;
+    const purpose = document.getElementById('pipeline-purpose')?.value;
+    if (!amount) return App.showToast('Enter a loan amount','warning');
+    if (!App.currentUser) return App.showToast('Select a customer first','warning');
+    this.init();
+    const resultEl = document.getElementById('pipeline-result');
+    if (resultEl) { resultEl.style.display='none'; resultEl.className='pipeline-result'; }
+    App.showToast('Running 6-agent loan pipeline...','info');
+
+    try {
+      const r = await fetch('/api/banking/loan-pipeline', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ userId: App.currentUser.id, amount: parseFloat(amount), purpose, applicationText: `I am ${App.currentUser.firstName} ${App.currentUser.lastName} and I would like to apply for a loan of $${amount} for ${purpose||'personal use'}.` })
+      });
+      const reader = r.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while(true) {
+        const {done, value} = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value);
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith('data:')) continue;
+          try {
+            const data = JSON.parse(line.slice(5));
+            if (data.node) this.setNodeState(data.node, data.status, data.result);
+            if (data.status === 'completed' && data.fullState) {
+              const approved = data.approved;
+              if (resultEl) {
+                resultEl.style.display='block';
+                resultEl.className = `pipeline-result ${approved?'approved':'rejected'}`;
+                resultEl.innerHTML = `<h3>${approved?'✅ APPROVED':'❌ REJECTED'}</h3><p>${(data.fullState?.decision||'').substring(0,300)}</p>`;
+              }
+              App.showToast(`Loan pipeline: ${approved?'APPROVED':'REJECTED'}`, approved?'success':'error');
+              if (approved) setTimeout(()=>Dashboard.loadDashboard(App.currentUser.id),2000);
+            }
+            if (data.error) App.showToast(`Pipeline error: ${data.error}`,'error');
+          } catch(e) {}
+        }
+      }
+    } catch(e) { App.showToast(`Pipeline failed: ${e.message}`,'error'); }
+  },
+};
+
+// Override selectMCPTool in Simulator to also show area
+const _origSelect = Simulator.selectMCPTool.bind(Simulator);
+Simulator.selectMCPTool = (name) => { _origSelect(name); selectMCPTool(name); };
+
+// Init pipeline on loan view
+document.querySelector('[data-view="loans"]')?.addEventListener('click', () => setTimeout(()=>Pipeline.init(),100));
+</script>
+</body>
+</html>

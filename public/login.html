@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Agent Authentication — AgenticBank AI</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f1f5f9;
+  --panel: rgba(255, 255, 255, 0.9);
+  --border: rgba(15, 23, 42, 0.12);
+  --border-focus: #0284c7;
+  --electric: #0284c7;
+  --neon: #059669;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --danger: #dc2626;
+  --amber: #d97706;
+  --font-sans: 'Inter', sans-serif;
+  --font-display: 'Space Grotesk', sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  height: 100vh;
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+canvas#bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.login-container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 440px;
+  padding: 20px;
+}
+
+.glass-card {
+  background: var(--panel);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 40px 36px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08), 0 0 40px rgba(2, 132, 199, 0.03);
+  position: relative;
+  overflow: hidden;
+  animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.glass-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -50%;
+  width: 200%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+  transform: rotate(-45deg);
+  transition: 0.5s;
+  pointer-events: none;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.logo-hex {
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, var(--amber), var(--danger));
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  margin: 0 auto 16px;
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.2);
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 6px;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.input-group {
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.input-group label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.input-wrapper {
+  position: relative;
+}
+
+.input-wrapper span {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  opacity: 0.6;
+}
+
+.input-field {
+  width: 100%;
+  padding: 13px 16px 13px 40px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  outline: none;
+  transition: all 0.3s;
+}
+
+.input-field:focus {
+  border-color: var(--border-focus);
+  background: #ffffff;
+  box-shadow: 0 0 15px rgba(2, 132, 199, 0.1);
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, var(--electric), #026496);
+  border: none;
+  border-radius: 12px;
+  color: #ffffff;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 28px;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(2, 132, 199, 0.2);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 24px 0;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.divider:not(:empty)::before {
+  margin-right: 16px;
+}
+
+.divider:not(:empty)::after {
+  margin-left: 16px;
+}
+
+.btn-sso {
+  width: 100%;
+  padding: 13px;
+  background: rgba(15, 23, 42, 0.03);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.btn-sso:hover {
+  background: rgba(15, 23, 42, 0.07);
+  border-color: rgba(15, 23, 42, 0.2);
+  transform: translateY(-1px);
+}
+
+.toast {
+  position: absolute;
+  bottom: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--danger);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  pointer-events: none;
+  opacity: 0;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
+}
+
+.toast.show {
+  bottom: 24px;
+  opacity: 1;
+}
+
+.help-tips {
+  margin-top: 24px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.help-tips code {
+  background: rgba(15, 23, 42, 0.05);
+  padding: 2px 5px;
+  border-radius: 4px;
+  color: var(--amber);
+  font-family: monospace;
+}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div class="login-container">
+  <div class="glass-card">
+    <div class="header">
+      <div class="logo-hex">👔</div>
+      <h1 class="title">AgenticBank AI</h1>
+      <p class="subtitle">Agent Command Center Authorization</p>
+    </div>
+
+    <form id="login-form">
+      <div class="input-group">
+        <label for="username">Agent Username</label>
+        <div class="input-wrapper">
+          <span>👤</span>
+          <input type="text" id="username" class="input-field" placeholder="Enter username" required autocomplete="username">
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label for="password">Password</label>
+        <div class="input-wrapper">
+          <span>🔑</span>
+          <input type="password" id="password" class="input-field" placeholder="Enter password" required autocomplete="current-password">
+        </div>
+      </div>
+
+      <button type="submit" class="btn-primary" id="submit-btn">
+        <span>Authorize Access</span> →
+      </button>
+    </form>
+
+    <div class="divider">Or secure SSO</div>
+
+    <button class="btn-sso" id="sso-btn">
+      <span style="font-size: 16px;">🔑</span> Sign in with Okta / AzureAD
+    </button>
+
+    <div class="help-tips">
+      Demo access: <code>agent1</code> / <code>password</code> (Compliance)<br>
+      Or click the SSO button to simulate active OAuth delegation.
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast-el"></div>
+
+<script>
+// Ambient particle background
+const canvas = document.getElementById('bg');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const pts = Array.from({length: 40}, () => ({
+  x: Math.random() * canvas.width,
+  y: Math.random() * canvas.height,
+  vx: (Math.random() - 0.5) * 0.2,
+  vy: (Math.random() - 0.5) * 0.2,
+  r: Math.random() * 1.5 + 0.5
+}));
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  pts.forEach(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    if(p.x < 0 || p.x > canvas.width) p.vx *= -1;
+    if(p.y < 0 || p.y > canvas.height) p.vy *= -1;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(2, 132, 199, 0.25)';
+    ctx.fill();
+  });
+  
+  pts.forEach((a, i) => pts.slice(i + 1).forEach(b => {
+    const d = Math.hypot(a.x - b.x, a.y - b.y);
+    if(d < 150) {
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.strokeStyle = `rgba(2, 132, 199, ${0.12 * (1 - d/150)})`;
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+    }
+  }));
+  requestAnimationFrame(draw);
+}
+draw();
+
+window.addEventListener('resize', () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
+
+// Toast Helper
+function showToast(msg, isError = true) {
+  const toast = document.getElementById('toast-el');
+  toast.textContent = msg;
+  toast.style.background = isError ? 'var(--danger)' : 'var(--neon)';
+  toast.style.color = '#fff';
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3500);
+}
+
+// Check for redirect query codes (e.g. OAuth mock returning code)
+const params = new URLSearchParams(window.location.search);
+const code = params.get('code');
+if (code) {
+  handleOAuthExchange(code);
+}
+
+// Username/password submit
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const u = document.getElementById('username').value.trim();
+  const p = document.getElementById('password').value;
+  const btn = document.getElementById('submit-btn');
+  
+  btn.disabled = true;
+  btn.textContent = "Authorizing...";
+  
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: u, password: p })
+    });
+    const data = await res.json();
+    
+    if (data.success) {
+      localStorage.setItem('agentToken', data.token);
+      localStorage.setItem('agentProfile', JSON.stringify(data.banker));
+      showToast('Authorization Granted. Redirecting...', false);
+      setTimeout(() => {
+        window.location.href = '/banker.html';
+      }, 1000);
+    } else {
+      showToast(data.error || 'Authentication failed');
+      btn.disabled = false;
+      btn.innerHTML = '<span>Authorize Access</span> →';
+    }
+  } catch (error) {
+    showToast('Connection error. Is backend running?');
+    btn.disabled = false;
+    btn.innerHTML = '<span>Authorize Access</span> →';
+  }
+});
+
+// Okta/SSO OAuth Click
+document.getElementById('sso-btn').addEventListener('click', async () => {
+  try {
+    const res = await fetch('/api/auth/oauth-url');
+    const data = await res.json();
+    if (data.success && data.url) {
+      window.location.href = data.url;
+    } else {
+      showToast('Failed to initialize SSO');
+    }
+  } catch (err) {
+    showToast('Failed to reach authentication provider');
+  }
+});
+
+// OAuth code exchange
+async function handleOAuthExchange(oauthCode) {
+  try {
+    const res = await fetch('/api/auth/oauth-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: oauthCode })
+    });
+    const data = await res.json();
+    if (data.success) {
+      localStorage.setItem('agentToken', data.token);
+      localStorage.setItem('agentProfile', JSON.stringify(data.banker));
+      showToast('SSO Authorization Granted. Redirecting...', false);
+      setTimeout(() => {
+        window.location.href = '/banker.html';
+      }, 1000);
+    } else {
+      showToast(data.error || 'SSO Exchange failed');
+      // remove code from URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  } catch (err) {
+    showToast('SSO Exchange connection error');
+  }
+}
+</script>
+</body>
+</html>

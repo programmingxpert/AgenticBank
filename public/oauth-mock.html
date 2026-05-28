@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Enterprise SSO Portal — Okta / AzureAD</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f7fa;
+  --card-bg: #ffffff;
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --primary: #002f6c; /* Corporate identity */
+  --primary-hover: #004094;
+  --border: #e2e8f0;
+  --accent: #2563eb;
+  --font-sans: 'Inter', sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text-main);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.sso-card {
+  width: 100%;
+  max-width: 480px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 40px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+}
+
+.brand-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 30px;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 20px;
+}
+
+.brand-okta {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.5px;
+}
+
+.brand-badge {
+  font-size: 11px;
+  font-weight: 600;
+  background: #eff6ff;
+  color: var(--accent);
+  padding: 4px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+}
+
+.app-request {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 30px;
+}
+
+.app-icon {
+  font-size: 24px;
+  width: 44px;
+  height: 44px;
+  background: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  color: white;
+}
+
+.app-details h3 {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.app-details p {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.instruction {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+.agent-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.agent-option:hover {
+  border-color: var(--accent);
+  background: #f0f7ff;
+  transform: translateY(-1px);
+}
+
+.agent-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.agent-avatar {
+  font-size: 20px;
+  width: 38px;
+  height: 38px;
+  background: #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.agent-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.agent-role {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.btn-select {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: transparent;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.agent-option:hover .btn-select {
+  background: var(--accent);
+  color: white;
+}
+
+.footer {
+  text-align: center;
+  margin-top: 30px;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.footer a {
+  color: var(--accent);
+  text-decoration: none;
+}
+</style>
+</head>
+<body>
+<div class="sso-card">
+  <div class="brand-header">
+    <div class="brand-okta">okta <span style="font-weight: 300; color: var(--text-muted);">Verify</span></div>
+    <div class="brand-badge">Secured SSO</div>
+  </div>
+
+  <div class="app-request">
+    <div class="app-icon">👔</div>
+    <div class="app-details">
+      <h3>AgenticBank AI Agent Portal</h3>
+      <p>Requesting: Read & Write Banker privileges</p>
+    </div>
+  </div>
+
+  <p class="instruction">Select an identity to sign in with SSO:</p>
+
+  <div class="agent-option" onclick="selectAgent('agent1')">
+    <div class="agent-info">
+      <div class="agent-avatar">⚖️</div>
+      <div>
+        <div class="agent-name">Alex Rivera</div>
+        <div class="agent-role">Compliance Officer (agent1)</div>
+      </div>
+    </div>
+    <button class="btn-select">Select</button>
+  </div>
+
+  <div class="agent-option" onclick="selectAgent('agent2')">
+    <div class="agent-info">
+      <div class="agent-avatar">🔍</div>
+      <div>
+        <div class="agent-name">Jordan Lee</div>
+        <div class="agent-role">Fraud Analyst (agent2)</div>
+      </div>
+    </div>
+    <button class="btn-select">Select</button>
+  </div>
+
+  <div class="footer">
+    Authorized by AgenticBank IT Security Group.<br>
+    Protected under Okta Enterprise Trust policy. <a href="#">Learn more</a>
+  </div>
+</div>
+
+<script>
+function selectAgent(username) {
+  // Simulate successful OAuth code response back to callback client handler
+  const mockCode = `oauth_mock_code_for_${username}_${Date.now()}`;
+  window.location.href = `/login.html?code=${mockCode}`;
+}
+</script>
+</body>
+</html>

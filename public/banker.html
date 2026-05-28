@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Banker Dashboard — AgenticBank AI</title>
+<meta name="description" content="AgenticBank AI Banker Dashboard: Live ReAct trace, fraud command center, approvals queue, system analytics.">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<link rel="stylesheet" href="/css/styles.css">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script>
+(function() {
+  const token = localStorage.getItem('agentToken');
+  const profile = localStorage.getItem('agentProfile');
+  if (!token || !profile) {
+    window.location.replace('/login.html');
+    return;
+  }
+
+  // Intercept fetch calls to append authorization header
+  const originalFetch = window.fetch;
+  window.fetch = async function(...args) {
+    let [url, config] = args;
+    config = config || {};
+    config.headers = config.headers || {};
+    
+    const activeToken = localStorage.getItem('agentToken');
+    if (activeToken) {
+      if (typeof url === 'string' && (url.startsWith('/api/') || url.startsWith('api/'))) {
+        if (!(config.headers instanceof Headers)) {
+          config.headers['Authorization'] = `Bearer ${activeToken}`;
+        } else {
+          config.headers.set('Authorization', `Bearer ${activeToken}`);
+        }
+      }
+    }
+    
+    try {
+      const response = await originalFetch(url, config);
+      if (response.status === 401) {
+        localStorage.removeItem('agentToken');
+        localStorage.removeItem('agentProfile');
+        window.location.replace('/login.html');
+      } else if (response.status === 403) {
+        if (typeof App !== 'undefined' && typeof App.showToast === 'function') {
+          App.showToast("Access Denied: Insufficient permissions for this role.", "error");
+        } else {
+          alert("Access Denied: Insufficient permissions for this role.");
+        }
+      }
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  };
+})();
+</script>
+</head>
+<body>
+<div class="banker-layout">
+
+  <!-- Sidebar -->
+  <div class="sidebar banker-sidebar">
+    <div class="sidebar-brand">
+      <span class="brand-icon">👔</span>
+      <div>
+        <span class="brand-name brand-name-banker">AgenticBank AI</span>
+        <span class="brand-tag">Banker Dashboard</span>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-view="command"><span class="nav-icon">🎯</span> Command Center</a>
+      <a href="#" class="nav-item" data-view="trace"><span class="nav-icon">🧠</span> AI Brain Live</a>
+      <a href="#" class="nav-item" data-view="approvals" id="nav-approvals">
+        <span class="nav-icon">⚡</span> Approvals
+        <span class="nav-badge" id="approval-badge" style="display:none">0</span>
+      </a>
+      <a href="#" class="nav-item" data-view="fraud" id="nav-fraud"><span class="nav-icon">🛡️</span> Fraud Command
+        <span class="nav-badge" id="alert-badge" style="display:none;background:var(--danger)">0</span>
+      </a>
+      <a href="#" class="nav-item" data-view="complaints" id="nav-complaints">
+        <span class="nav-icon">📢</span> Complaints Center
+        <span class="nav-badge" id="complaint-badge" style="display:none;background:var(--amber)">0</span>
+      </a>
+      <a href="#" class="nav-item" data-view="loans"><span class="nav-icon">🏦</span> Loan Oversight</a>
+      <a href="#" class="nav-item" data-view="audit"><span class="nav-icon">📋</span> Audit Log</a>
+      <a href="#" class="nav-item" data-view="copilot" id="nav-copilot"><span class="nav-icon">🤖</span> AI Copilot</a>
+      <a href="/payment-hub.html" class="nav-item" style="margin-top:8px;border-top:1px solid var(--border);padding-top:12px"><span class="nav-icon">💳</span> Payment Hub</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="api-status">
+        <div class="status-dot simulation"></div>
+        <span class="status-text">Connecting...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <header class="topbar">
+      <div class="page-title" id="page-title">Command Center</div>
+      <div class="topbar-right">
+        <span id="banker-display-name" style="font-size:12px;color:var(--text-muted);margin-right:12px"></span>
+        <span style="font-size:12px;color:var(--text-muted)">Admin · <strong style="color:var(--amber)">Banker Portal</strong></span>
+        <a href="/" style="font-size:12px;color:var(--text-muted);text-decoration:none;margin-left:12px">← Home</a>
+        <button id="logout-btn" style="background:none;border:1px solid rgba(255, 59, 78, 0.3);color:var(--danger);border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer;margin-left:12px;font-family:inherit;transition:all 0.2s">Logout ⎋</button>
+      </div>
+    </header>
+
+    <div class="view-container">
+
+      <!-- COMMAND CENTER -->
+      <div id="view-command" class="view active">
+        <div class="stats-grid" id="system-stats-grid"></div>
+        <div style="margin-top:8px"><div style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Agent Status Grid</div>
+        <div class="agent-status-grid" id="agent-status-grid"></div></div>
+        
+        <div class="card" style="margin-top:20px">
+          <div class="card-header">
+            <h3>👤 Global Customer Directory</h3>
+            <div style="display:flex;gap:10px">
+              <input type="text" id="user-search" placeholder="Search customers..." class="input-premium" style="width:200px;height:32px;font-size:12px">
+              <button class="btn-ghost" onclick="Banker.loadUserDirectory()" style="font-size:12px">↻ Reload</button>
+            </div>
+          </div>
+          <div class="card-body" style="max-height:400px;overflow-y:auto">
+            <div id="user-directory-grid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));gap:12px">
+              <div style="opacity:.4;grid-column:1/-1;text-align:center;padding:20px">Loading directory...</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:20px">
+          <div class="card-header"><h3>Live Transaction Feed</h3><span class="card-badge live">LIVE</span></div>
+          <div class="card-body" id="live-txn-feed" style="max-height:300px;overflow-y:auto;font-family:var(--mono);font-size:12px;color:var(--text-secondary)">
+            <div style="opacity:.4">Waiting for transactions...</div>
+          </div>
+        </div>
+
+        <!-- Payment Hub Quick Launch -->
+        <a href="/payment-hub.html" style="display:block;text-decoration:none;margin-top:20px">
+          <div style="background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);border:1px solid rgba(124,58,237,0.3);border-radius:16px;padding:18px 24px;display:flex;align-items:center;gap:20px;transition:all .2s" onmouseover="this.style.borderColor='rgba(124,58,237,0.7)';this.style.boxShadow='0 8px 30px rgba(124,58,237,0.15)'" onmouseout="this.style.borderColor='rgba(124,58,237,0.3)';this.style.boxShadow='none'">
+            <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#7c3aed,#0284c7);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">💳</div>
+            <div style="flex:1">
+              <div style="font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:700;color:#fff;margin-bottom:3px">Payment Orchestration Hub</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.45)">Process payments · View HITL queue · Analytics · Reconciliation · Policy governance</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+              <span id="pay-hitl-badge" style="display:none;font-size:11px;background:rgba(220,38,38,0.2);color:#f87171;padding:3px 10px;border-radius:10px;border:1px solid rgba(220,38,38,0.3);font-weight:700">⚡ HITL Pending</span>
+              <span style="font-size:18px;color:rgba(255,255,255,0.3)">→</span>
+            </div>
+          </div>
+        </a>
+      </div>
+
+      <!-- AI BRAIN LIVE -->
+      <div id="view-trace" class="view">
+        <div style="display:grid;grid-template-columns:1fr 320px;gap:20px;height:calc(100vh - 130px)">
+          <div class="card" style="display:flex;flex-direction:column;overflow:hidden">
+            <div class="card-header" style="flex-shrink:0">
+              <h3>🧠 Live Agent Reasoning — ReAct Trace</h3>
+              <div style="display:flex;gap:8px;align-items:center">
+                <span class="card-badge live">STREAMING</span>
+                <button onclick="document.getElementById('ai-trace-log').innerHTML=''" class="btn-ghost" style="padding:4px 10px;font-size:11px">Clear</button>
+              </div>
+            </div>
+            <div id="ai-trace-log" class="trace-log" style="flex:1;padding:16px">
+              <div class="trace-entry system"><div class="trace-label">⚠️ SYSTEM</div>System initialized. Watching for agent operations...</div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div class="card">
+              <div class="card-header"><h3>Trace Legend</h3></div>
+              <div class="card-body" style="font-size:12px;line-height:2">
+                <div><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--violet);margin-right:8px"></span>🧠 Thinking (Reasoning)</div>
+                <div><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--amber);margin-right:8px"></span>⚡ Action (Tool Call)</div>
+                <div><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--electric);margin-right:8px"></span>🔭 Observation (Result)</div>
+                <div><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--neon);margin-right:8px"></span>💬 Response</div>
+                <div><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--danger);margin-right:8px"></span>⚠️ System/Alert</div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>Active Agents</h3></div>
+              <div class="card-body"><div id="agent-status-list"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- APPROVALS -->
+      <div id="view-approvals" class="view">
+        <div class="card">
+          <div class="card-header"><h3>⚡ Pending Human Review</h3><button class="btn-ghost" onclick="Banker.loadApprovals()" style="font-size:12px">↻ Refresh</button></div>
+          <div class="card-body">
+            <div id="approvals-empty" class="empty-state"><div class="empty-icon">✅</div><h3>All caught up!</h3><p>No pending approvals in the queue.</p></div>
+            <div id="approvals-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FRAUD COMMAND -->
+      <div id="view-fraud" class="view">
+        <div class="card" style="border-color:rgba(255,59,78,.3)">
+          <div class="card-header"><h3 style="color:var(--danger)">🛡️ Fraud Command Center</h3><span class="card-badge live" style="background:rgba(255,59,78,.15);color:var(--danger);border-color:rgba(255,59,78,.3)">MONITORING</span></div>
+          <div class="card-body">
+            <div id="alerts-empty" class="empty-state"><div class="empty-icon">🛡️</div><h3>No Active Alerts</h3><p>AI fraud agents have not flagged any critical issues.</p></div>
+            <div id="alerts-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LOAN OVERSIGHT -->
+      <div id="view-loans" class="view">
+        <div class="card">
+          <div class="card-header"><h3>System-Wide Loan Portfolio</h3><button class="btn-ghost" onclick="Banker.loadAllLoans()" style="font-size:12px">↻ Refresh</button></div>
+          <div class="card-body transactions-table-wrap" id="banker-loans-list"></div>
+        </div>
+      </div>
+
+      <!-- COMPLAINTS CENTER -->
+      <div id="view-complaints" class="view">
+        <div class="card">
+          <div class="card-header"><h3>📢 Customer Support & Complaints</h3><button class="btn-ghost" onclick="Banker.loadComplaints()" style="font-size:12px">↻ Refresh</button></div>
+          <div class="card-body">
+            <div id="complaints-empty" class="empty-state"><div class="empty-icon">🎉</div><h3>Peace & Quiet</h3><p>No open complaints at the moment.</p></div>
+            <div class="transactions-table-wrap">
+                <table class="transactions-table" id="complaints-table" style="display:none">
+                    <thead><tr><th>ID</th><th>User</th><th>Subject</th><th>Priority</th><th>Status</th><th>Date</th></tr></thead>
+                    <tbody id="complaints-list"></tbody>
+                </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AUDIT LOG -->
+      <div id="view-audit" class="view">
+        <div class="card">
+          <div class="card-header"><h3>📋 System Audit Log</h3><button class="btn-ghost" onclick="Banker.loadAuditLog()" style="font-size:12px">↻ Refresh</button></div>
+          <div class="card-body transactions-table-wrap" id="audit-log"></div>
+        </div>
+      </div>
+
+      <!-- AI COPILOT -->
+      <div id="view-copilot" class="view">
+        <div class="chat-split" style="display:grid;grid-template-columns:240px 1fr 340px;gap:20px;height:calc(100vh - 130px)">
+          <!-- Copilot Sessions Sidebar -->
+          <div class="card sessions-panel" style="display:flex;flex-direction:column;overflow:hidden">
+            <div class="card-header" style="flex-shrink:0;padding:12px 14px;border-bottom:1px solid var(--border)">
+              <button id="new-copilot-session-btn" class="btn-primary" onclick="Banker.createNewCopilotSession()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;padding:8px 12px">
+                <span>➕</span> NEW SESSION
+              </button>
+            </div>
+            <div id="copilot-sessions-list" class="sessions-list" style="flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px">
+              <!-- Sessions loaded here dynamically -->
+            </div>
+          </div>
+          
+          <div class="card" style="display:flex;flex-direction:column;overflow:hidden">
+            <div class="card-header" style="flex-shrink:0">
+              <h3 id="copilot-chat-title">🤖 AI Banker Copilot</h3>
+              <div style="display:flex;align-items:center;gap:10px">
+                <span class="card-badge" style="background:var(--electric);color:white">RECONCILED AGENT</span>
+                <span class="card-badge">DEEPSEEK</span>
+              </div>
+            </div>
+            
+            <div id="copilot-chat-messages" class="chat-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 300px);background:var(--bg-card2)">
+              <div class="chat-welcome" style="text-align:center;padding:40px 20px">
+                <div class="welcome-icon" style="font-size:48px;margin-bottom:16px">🤖</div>
+                <h2 style="font-size:20px;margin-bottom:8px">AI Banker Assistant</h2>
+                <p style="color:var(--text-secondary);max-width:500px;margin:0 auto 20px">Hello! I am your AI Banking Copilot. I have access to system accounts, compliance statuses, transaction history, and complaints.</p>
+                <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">You can ask me to take direct actions, such as:</p>
+                <div class="quick-actions" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:500px;margin:0 auto">
+                  <button class="btn-ghost" style="text-align:left;font-size:11px;padding:8px 12px;border:1px solid var(--border)" onclick="Banker.quickCopilotMsg('Explain why user USR-003 was flagged')">❓ Why was USR-003 flagged?</button>
+                  <button class="btn-ghost" style="text-align:left;font-size:11px;padding:8px 12px;border:1px solid var(--border)" onclick="Banker.quickCopilotMsg('Freeze all accounts of user USR-003')">❄️ Freeze user USR-003</button>
+                  <button class="btn-ghost" style="text-align:left;font-size:11px;padding:8px 12px;border:1px solid var(--border)" onclick="Banker.quickCopilotMsg('Check recent transactions for USR-001')">📜 Get recent txns USR-001</button>
+                  <button class="btn-ghost" style="text-align:left;font-size:11px;padding:8px 12px;border:1px solid var(--border)" onclick="Banker.quickCopilotMsg('Resolve complaint CMP-001')">📢 Resolve complaint CMP-001</button>
+                </div>
+              </div>
+            </div>
+            
+            <div class="chat-input-area" style="padding:14px;border-top:1px solid var(--border);background:var(--bg-surface)">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:11px;color:var(--text-muted)">
+                <span>AI Banker Copilot can perform actions directly in real time.</span>
+              </div>
+              <div class="chat-input-wrapper" style="display:flex;gap:10px;position:relative;">
+                <button id="banker-tts-btn" title="Toggle Text-to-Speech" onclick="const e=window.AudioService.toggleTTS(); this.textContent=e?'🔊':'🔇';" style="background:var(--bg-surface); color:var(--text-primary); border:1px solid var(--border); border-radius:6px; padding:0 12px; cursor:pointer;">🔊</button>
+                <button id="banker-stt-btn" title="Voice Input" onclick="Banker.toggleVoiceMode()" style="background:var(--bg-surface); color:var(--text-primary); border:1px solid var(--border); border-radius:6px; padding:0 12px; cursor:pointer;">🎤</button>
+                <input type="text" id="copilot-chat-input" class="chat-input" placeholder="Ask AI Copilot to analyze, freeze, block, or resolve..." autocomplete="off" style="flex:1;background:var(--bg-surface);border:1px solid var(--border2);color:var(--text-primary);padding:8px 12px;border-radius:6px;outline:none" onkeydown="if(event.key==='Enter') Banker.sendCopilotMessage()">
+                <button id="copilot-chat-send-btn" class="btn-primary" onclick="Banker.sendCopilotMessage()" style="padding:0 16px;height:38px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:inherit;font-weight:600;font-size:12px;cursor:pointer">Send</button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Banker Context Sidebar -->
+          <div class="card" style="display:flex;flex-direction:column;overflow:hidden">
+            <div class="card-header"><h3>Active Context</h3></div>
+            <div class="card-body" style="padding:14px;display:flex;flex-direction:column;gap:12px;font-size:12px">
+              <div>
+                <label style="color:var(--text-muted);display:block;margin-bottom:4px">Target Customer Context</label>
+                <select id="copilot-user-select" class="input-premium" style="width:100%;height:34px;background:var(--bg-surface);border:1px solid var(--border2);color:var(--text-primary);padding:0 8px;border-radius:4px" onchange="Banker.onCopilotUserChange()">
+                  <option value="">-- No customer selected --</option>
+                </select>
+              </div>
+              
+              <div id="copilot-context-detail" style="flex:1;border:1px solid var(--border);border-radius:6px;padding:12px;background:var(--bg-card2);overflow-y:auto;max-height:calc(100vh - 280px)">
+                <div style="text-align:center;color:var(--text-muted);padding-top:40px">
+                  Select a customer to load real-time intelligence into the AI context window.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Right Live Panel -->
+  <div class="banker-right">
+    <div class="banker-right-header">
+      <span class="trace-live-dot"></span> Client Intelligence
+    </div>
+    <div id="client-intel" style="padding:16px;border-bottom:1px solid var(--border);background:rgba(0,212,255,0.03)">
+      <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Active Context</div>
+      <div id="intel-content" class="empty-state" style="padding:10px 0;text-align:left">
+        <p style="font-size:12px">Select a customer in the portal to see deep-intelligence here.</p>
+      </div>
+    </div>
+    <div class="banker-right-header" style="border-top:1px solid var(--border)">
+      <span class="trace-live-dot"></span> Live Feed
+    </div>
+    <div id="right-live-feed" style="flex:1;overflow-y:auto;padding:12px;font-family:var(--mono);font-size:11px;color:var(--text-secondary)">
+      <div style="opacity:.4;text-align:center;padding:20px">Waiting for events...</div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<div class="agent-hub" id="agent-hub">
+  <div class="agent-hub-badge">14</div>
+  <button class="agent-hub-btn" onclick="App.toggleAgentHub()">🤖</button>
+  <div class="agent-hub-panel" id="agent-hub-panel">
+    <div class="agent-hub-header">
+      <h3><span>🤖</span> AI Agent Repository</h3>
+      <button onclick="App.toggleAgentHub()" style="background:none;border:none;color:var(--text-muted);cursor:pointer">✕</button>
+    </div>
+    <div class="agent-hub-grid" id="agent-hub-grid">
+      <!-- Populated via JS -->
+    </div>
+  </div>
+</div>
+
+<script src="/js/audio.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/dashboard.js"></script>
+<script src="/js/banker.js"></script>
+<script>
+// Banker-specific WebSocket overrides
+const _origInit = App.init.bind(App);
+App.init = async function() {
+  this.sessionId = 'banker-' + Date.now().toString(36);
+  await this.loadUsers(); // MUST LOAD USERS FIRST
+  this.setupWS();
+  this.setupNavigation();
+  if (typeof Banker !== 'undefined') Banker.init();
+  // Check API status
+  try { const r = await fetch('/api/health'); const d = await r.json(); this.setApiStatus(d.apiConfigured?'connected':'simulation'); } catch(e) {}
+};
+
+// Override WS event handler for banker
+App.handleWSEvent = function(event, data) {
+  // Right panel live feed
+  const feed = document.getElementById('right-live-feed');
+  if (feed) {
+    const e = document.createElement('div');
+    e.style.cssText = 'padding:10px; border:1px solid var(--border); background:var(--bg-surface); margin-bottom:8px; border-radius:8px; box-shadow:var(--shadow); line-height:1.5;';
+    const icons = {transaction:'💸',transfer:'↔️','approval:pending':'⚡','approval:resolved':'✓','agent:alert':'🚨','agent:trace':'🤖',loan:'🏦','memory:update':'🧠'};
+    e.innerHTML = `<div style="color:var(--text-muted);font-size:9px">${App.formatTime(Date.now())} · ${event}</div><div style="color:var(--text-primary)">${icons[event]||'•'} ${JSON.stringify(data).substring(0,80)}...</div>`;
+    if (feed.querySelector('[style*="opacity"]')) feed.innerHTML = '';
+    feed.prepend(e);
+    while (feed.children.length > 50) feed.removeChild(feed.lastChild);
+  }
+
+  // Live txn feed on command center
+  const liveFeed = document.getElementById('live-txn-feed');
+  if ((event==='transaction'||event==='transfer') && liveFeed) {
+    const ent = document.createElement('div');
+    ent.style.cssText = 'padding:10px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; background:var(--bg-surface); margin-bottom:6px; border-radius:6px;';
+    ent.innerHTML = `<span style="color:var(--text-muted); font-size:11px;">${App.formatTime(Date.now())}</span> <span style="color:var(--electric); font-weight:600;">${data.merchant||'Transfer'}</span> <span style="${data.amount>=0?'color:var(--neon)':'color:var(--danger)'}; font-weight:700;">${App.formatCurrency(data.amount)}</span>`;
+    if (liveFeed.querySelector('[style*="opacity"]')) liveFeed.innerHTML = '';
+    liveFeed.prepend(ent);
+    while(liveFeed.children.length>30) liveFeed.removeChild(liveFeed.lastChild);
+  }
+
+  if (event === 'agent:trace') { 
+    Banker.addTrace(data);
+    if (data.userId) Banker.loadUserIntel(data.userId);
+  }
+  if (event === 'agent:alert') { 
+    Banker.addAlert(data); 
+    if (data.userId) Banker.loadUserIntel(data.userId);
+    App.showToast(`🚨 ${data.agent}: ${(data.message||'').substring(0,60)}`, 'error'); 
+  }
+  if (event === 'approval:pending') { Banker.loadApprovals(); App.showToast(`⚡ Approval needed: ${data.type}`, 'warning'); }
+  if (event === 'approval:resolved') { Banker.loadApprovals(); App.showToast(`✓ Approval ${data.decision}`, data.decision==='approved'?'success':'error'); }
+  if (event === 'complaint:created') { Banker.onComplaint(data); App.showToast(`📢 New Complaint: ${data.subject}`, 'info'); }
+  if (event === 'loan') Banker.loadAllLoans();
+};
+
+App.setupNavigation = function() {
+  document.querySelectorAll('.nav-item[data-view]').forEach(item => {
+    item.addEventListener('click', e => {
+      e.preventDefault();
+      
+      const profile = JSON.parse(localStorage.getItem('agentProfile') || '{}');
+      const targetView = item.dataset.view;
+      if (profile.role === 'Compliance Officer' && targetView === 'fraud') {
+        App.showToast("Access Denied: Compliance Officers cannot access Fraud Control.", "error");
+        return;
+      }
+      if (profile.role === 'Fraud Analyst' && (targetView === 'approvals' || targetView === 'complaints')) {
+        App.showToast("Access Denied: Fraud Analysts cannot access Approvals or Complaints.", "error");
+        return;
+      }
+
+      document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+      item.classList.add('active');
+      document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+      document.getElementById(`view-${item.dataset.view}`)?.classList.add('active');
+      const titleEl = document.getElementById('page-title');
+      if (titleEl) titleEl.textContent = item.textContent.trim().replace(/[0-9]/g,'').trim();
+      if (item.dataset.view==='approvals') Banker.loadApprovals();
+      if (item.dataset.view==='loans') Banker.loadAllLoans();
+      if (item.dataset.view==='audit') Banker.loadAuditLog();
+      if (item.dataset.view==='complaints') {
+          Banker.loadComplaints();
+          Banker.complaintCount = 0;
+          document.getElementById('complaint-badge').style.display='none';
+      }
+      if (item.dataset.view==='fraud') {
+        Banker.alertCount = 0;
+        document.getElementById('alert-badge').style.display='none';
+      }
+      if (item.dataset.view==='copilot') {
+        Banker.initCopilotView();
+      }
+    });
+  });
+};
+</script>
+</body>
+</html>

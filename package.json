@@ -1,0 +1,29 @@
+{
+  "name": "autonomous-banking-agents",
+  "version": "1.0.0",
+  "description": "Fully autonomous AI banking agents over multiple domains with human-in-the-loop, powered by Deepseek API",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "python src/server.py",
+    "dev": "python src/server.py"
+  },
+  "keywords": [
+    "ai",
+    "banking",
+    "multi-agent",
+    "deepseek",
+    "autonomous"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "openai": "^4.78.1",
+    "oracledb": "^6.10.0",
+    "uuid": "^11.1.0",
+    "ws": "^8.18.0"
+  }
+}
