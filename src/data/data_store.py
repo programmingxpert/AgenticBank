@@ -152,9 +152,9 @@ class DataStore(EventEmitter):
             await oracle.execute(sql, binds)
             
         for b in bankers:
-            sql = """INSERT INTO bankers (username, name, role, password_hash) VALUES (:username, :name, :role, :passwordHash)"""
+            sql = """INSERT INTO bankers (id, username, name, role, password_hash) VALUES (:id, :username, :name, :role, :passwordHash)"""
             binds = {
-                "username": b["username"], "name": b["name"], "role": b["role"], "passwordHash": b["passwordHash"]
+                "id": f"BNK-{str(uuid.uuid4())[:8].upper()}", "username": b["username"], "name": b["name"], "role": b["role"], "passwordHash": b["passwordHash"]
             }
             await oracle.execute(sql, binds)
 

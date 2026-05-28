@@ -201,15 +201,19 @@ async def initialize_schema():
     await execute("""
         CREATE TABLE transactions (
           id VARCHAR2(50) PRIMARY KEY,
+          user_id VARCHAR2(50),
           account_id VARCHAR2(50),
           type VARCHAR2(30),
           amount NUMBER,
+          currency VARCHAR2(10),
           merchant VARCHAR2(100),
           category VARCHAR2(50),
           description VARCHAR2(500),
           date_val VARCHAR2(50),
           status VARCHAR2(30),
-          risk_score NUMBER
+          risk_score NUMBER,
+          latitude NUMBER,
+          longitude NUMBER
         )
     """)
 
@@ -219,14 +223,16 @@ async def initialize_schema():
           id VARCHAR2(50) PRIMARY KEY,
           user_id VARCHAR2(50),
           type VARCHAR2(30),
+          purpose VARCHAR2(500),
           amount NUMBER,
-          remaining_balance NUMBER,
+          currency VARCHAR2(10),
+          status VARCHAR2(30),
           interest_rate NUMBER,
           term_months NUMBER,
-          monthly_payment NUMBER,
-          status VARCHAR2(30),
           start_date VARCHAR2(30),
-          purpose VARCHAR2(500)
+          remaining_balance NUMBER,
+          monthly_payment NUMBER,
+          next_payment_date VARCHAR2(30)
         )
     """)
 
