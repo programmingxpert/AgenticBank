@@ -98,7 +98,7 @@ class DataStore(EventEmitter):
                      VALUES (:id, :firstName, :lastName, :email, :phone, :dob, :ssn, :address, :occupation, :employer, :annualIncome, :creditScore, :riskProfile, :kycStatus, :joinDate)"""
             binds = {
                 "id": u["id"], "firstName": u["firstName"], "lastName": u["lastName"], "email": u["email"],
-                "phone": u.get("phone", ""), "dob": u.get("dob", ""), "ssn": u.get("ssn", ""), "address": u.get("address", ""),
+                "phone": u.get("phone", ""), "dob": u.get("dob", ""), "ssn": u.get("ssn", ""), "address": json.dumps(u.get("address", {})),
                 "occupation": u.get("occupation", ""), "employer": u.get("employer", ""), "annualIncome": u.get("annualIncome", 0),
                 "creditScore": u.get("creditScore", 0), "riskProfile": u.get("riskProfile", ""), "kycStatus": u.get("kycStatus", ""),
                 "joinDate": u.get("joinDate", "")
