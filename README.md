@@ -470,8 +470,8 @@ Follow these step-by-step instructions to get AgenticBank AI running flawlessly 
 ### Step 1: Clone the Repository
 Open your terminal and clone the repository to your local machine:
 ```bash
-git clone https://github.com/your-org/autonomous-banking.git
-cd autonomous-banking
+git clone https://github.com/programmingxpert/AgenticBank.git
+cd AgenticBank
 ```
 
 ### Step 2: Set Up Python Virtual Environment

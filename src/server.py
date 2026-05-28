@@ -26,7 +26,7 @@ from src.config import config, validate_config
 from src.utils.logger import logger
 from src.utils.jwt_utils import sign_token, verify_token
 from src.data.data_store import data_store
-from src.middleware.auth_middleware import get_current_banker, require_role
+from src.middleware.auth_middleware import get_current_banker, get_optional_banker, require_role
 from src.middleware.human_approval import execute_approved_action, handle_rejection
 from src.ai.orchestrator import route_message, route_banker_message, get_agent_info, AGENT_INFO
 from src.ai.deepseek_client import is_api_configured, chat_completion
@@ -754,7 +754,7 @@ class PaymentInitiateRequest(BaseModel):
     description: Optional[str] = None
 
 @app.post("/api/payments/initiate")
-async def initiate_payment(req: PaymentInitiateRequest, banker: dict = Depends(get_current_banker)):
+async def initiate_payment(req: PaymentInitiateRequest, banker: dict = Depends(get_optional_banker)):
     try:
         session_id = f"payment-{req.userId}-{int(time.time())}"
         # Must create session so agent history read/write works correctly
@@ -783,27 +783,28 @@ async def initiate_payment(req: PaymentInitiateRequest, banker: dict = Depends(g
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/payments/queue")
-async def get_payment_queue(status: Optional[str] = None, banker: dict = Depends(get_current_banker)):
+async def get_payment_queue(status: Optional[str] = None, banker: dict = Depends(get_optional_banker)):
     payments = data_store.get_all_payments(status=status)
     return {"payments": payments}
 
 @app.get("/api/payments/analytics")
-async def get_payment_analytics(banker: dict = Depends(get_current_banker)):
+async def get_payment_analytics(banker: dict = Depends(get_optional_banker)):
     return data_store.get_payment_analytics()
 
 @app.get("/api/payments/{payment_id}")
-async def get_payment(payment_id: str, banker: dict = Depends(get_current_banker)):
+async def get_payment(payment_id: str, banker: dict = Depends(get_optional_banker)):
     payment = data_store.get_payment_by_id(payment_id)
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
     return {"payment": payment}
 
 @app.post("/api/payments/{payment_id}/cancel")
-async def cancel_payment(payment_id: str, banker: dict = Depends(get_current_banker)):
+async def cancel_payment(payment_id: str, banker: dict = Depends(get_optional_banker)):
     payment = data_store.update_payment(payment_id, {"status": "cancelled"})
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
-    data_store._audit("payment_cancelled", {"id": payment_id, "banker": banker.get("username")})
+    banker_name = banker.get("username") if banker else "Customer"
+    data_store._audit("payment_cancelled", {"id": payment_id, "banker": banker_name})
     return {"success": True, "payment": payment}
 
 class PaymentChatRequest(BaseModel):
@@ -812,7 +813,7 @@ class PaymentChatRequest(BaseModel):
     sessionId: Optional[str] = None
 
 @app.post("/api/chat/payment")
-async def payment_chat(req: PaymentChatRequest, banker: dict = Depends(get_current_banker)):
+async def payment_chat(req: PaymentChatRequest, banker: dict = Depends(get_optional_banker)):
     try:
         session_id = req.sessionId or f"pay-chat-{req.userId}-{int(time.time())}"
         # Ensure session exists in data_store so agent history works
@@ -1526,7 +1527,7 @@ mcp_tool_handlers = {
 }
 
 @app.get("/api/mcp/tools")
-async def get_mcp_tools(banker: dict = Depends(get_current_banker)):
+async def get_mcp_tools(banker: dict = Depends(get_optional_banker)):
     return {
         "version": "1.0.0",
         "serverName": "AgenticBank-MCP-Server",
@@ -1534,7 +1535,7 @@ async def get_mcp_tools(banker: dict = Depends(get_current_banker)):
     }
 
 @app.post("/api/mcp/invoke")
-async def post_mcp_invoke(req: McpInvokeRequest, banker: dict = Depends(get_current_banker)):
+async def post_mcp_invoke(req: McpInvokeRequest, banker: dict = Depends(get_optional_banker)):
     if not req.tool:
         raise HTTPException(status_code=400, detail="tool name is required")
         

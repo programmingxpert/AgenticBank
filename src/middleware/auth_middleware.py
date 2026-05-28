@@ -20,6 +20,17 @@ async def get_current_banker(credentials: HTTPAuthorizationCredentials = Depends
         
     return banker
 
+async def get_optional_banker(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    if not credentials:
+        return None
+        
+    token = credentials.credentials
+    decoded = verify_token(token)
+    if not decoded or not decoded.get("bankerId"):
+        return None
+        
+    return data_store.get_banker_by_id(decoded.get("bankerId"))
+
 def require_role(allowed_roles):
     if isinstance(allowed_roles, str):
         allowed_roles = [allowed_roles]
